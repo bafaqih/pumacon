@@ -1,0 +1,73 @@
+/* File: SidebarAccount.module.css (Berdasarkan Investigasi Anda) */
+
+/* --- Wrapper Info Pengguna (Kita pertahankan dari sebelumnya) --- */
+.user-info-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid var(--bs-gray-200); /* Menggunakan variabel Bootstrap */
+  padding: 1rem;
+}
+.avatar { width: 50px; height: 50px; object-fit: cover; }
+.avatar-lg { width: 60px; height: 60px; }
+
+
+/* --- Container Navigasi Utama --- */
+/* Memberikan border luar pada seluruh blok menu */
+.nav-account {
+  border: 1px solid var(--bs-gray-200);
+}
+
+/* --- Setiap Link Navigasi --- */
+/* Ini adalah inti dari style Anda, gabungan dari temuan Anda */
+.nav-link {
+  display: block; /* Membuat seluruh area bisa diklik */
+  width: 100%;
+  padding: 14px 16px; /* Padding dari temuan Anda */
+  
+  /* Tampilan Teks */
+  color: var(--bs-gray-900); /* Warna teks dari temuan Anda */
+  font-weight: 500; /* Sedikit lebih tebal dari temuan Anda untuk keterbacaan */
+  text-decoration: none;
+  line-height: 1.5; /* Sedikit lebih lega dari temuan Anda */
+
+  /* Garis Pemisah */
+  border-bottom: 1px solid var(--bs-gray-200);
+
+  /* Efek Transisi */
+  transition: all 0.2s ease-in-out;
+}
+
+/* --- Menghilangkan border bawah pada item terakhir --- */
+/* Ini akan membuat tampilan lebih rapi */
+.nav-item:last-child .nav-link {
+  border-bottom: none;
+}
+
+/* --- State Saat Link Di-hover --- */
+.nav-link:hover {
+  background-color: #f8f9fa; /* Warna hover standar yang bagus */
+  color: var(--bs-primary);
+}
+
+/* --- State Saat Link Aktif --- */
+/* Ini persis seperti yang Anda temukan */
+.active {
+  background-color: var(--bs-primary) !important;
+  color: #fff !important;
+  border-bottom-color: var(--bs-primary) !important;
+}
+
+/* --- Style untuk Ikon --- */
+.feather {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2px;
+  vertical-align: middle; /* Membuat ikon sejajar dengan teks */
+  margin-right: 0.75rem; /* Jarak antara ikon dan teks */
+}
+
+/* Warna ikon akan ikut berubah saat link aktif */
+.active .feather {
+  color: #fff;
+}

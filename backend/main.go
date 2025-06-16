@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"backend-user/domain/admin"
+	"backend-user/domain/models"
 	"backend-user/domain/user"
 
 	"github.com/gin-contrib/cors"
@@ -25,7 +26,7 @@ var errDb error
 
 func AdminAuthMiddleware(jwtSecret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log.Println("[Middleware] AdminAuthMiddleware: Request diterima untuk path:", c.Request.URL.Path) // Log path
+		log.Println("[Middleware] AdminAuthMiddleware: Request diterima untuk path:", c.Request.URL.Path)
 		authHeader := c.GetHeader("Authorization")
 		log.Printf("[Middleware] AdminAuthMiddleware: Authorization Header: [%s]\n", authHeader)
 
@@ -50,7 +51,6 @@ func AdminAuthMiddleware(jwtSecret []byte) gin.HandlerFunc {
 				log.Printf("[Middleware] AdminAuthMiddleware: Metode signing tidak terduga: %v\n", token.Header["alg"])
 				return nil, fmt.Errorf("metode signing tidak terduga: %v", token.Header["alg"])
 			}
-			// log.Printf("[Middleware] AdminAuthMiddleware: Menggunakan secret: %s\n", string(jwtSecret)) // Hati-hati log secret di produksi
 			return jwtSecret, nil
 		})
 
@@ -94,7 +94,7 @@ func CustomerAuthMiddleware(jwtSecret []byte) gin.HandlerFunc {
 		tokenString := parts[1]
 		log.Printf("[Middleware] CustomerAuthMiddleware: Token String Diterima: [%s]\n", tokenString)
 
-		claims := &user.CustomerJwtCustomClaims{} // Gunakan claims untuk customer
+		claims := &user.CustomerJwtCustomClaims{}
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				log.Printf("[Middleware] CustomerAuthMiddleware: Metode signing tidak terduga: %v\n", token.Header["alg"])
@@ -116,8 +116,7 @@ func CustomerAuthMiddleware(jwtSecret []byte) gin.HandlerFunc {
 		}
 
 		log.Printf("[Middleware] CustomerAuthMiddleware: Token valid. Claims: %+v\n", claims)
-		// Set CustomerID dari claims ke context Gin
-		c.Set("customer_id_from_token", claims.CustomerID) // Kunci ini harus sama dengan yang digunakan di handler user
+		c.Set("customer_id_from_token", claims.CustomerID)
 		c.Next()
 	}
 }
@@ -133,7 +132,7 @@ func init() {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	jwtSecretUser := os.Getenv("JWT_SECRET_KEY_USER") // Ganti nama var jika perlu untuk customer
+	jwtSecretUser := os.Getenv("JWT_SECRET_KEY_USER")
 	if jwtSecretUser == "" {
 		log.Fatal("Kesalahan: JWT_SECRET_KEY_USER tidak disetel.")
 	}
@@ -147,29 +146,34 @@ func main() {
 	log.Printf("[Main Debug] Nilai string jwtSecretAdmin yang akan digunakan: [%s]\n", jwtSecretAdmin)
 	log.Printf("[Main Debug] Panjang byte jwtSecretAdmin yang akan digunakan: %d\n", len([]byte(jwtSecretAdmin)))
 
-	// --- KONFIGURASI KONEKSI POSTGRESQL ---
 	dsn := "host=localhost user=bafaqih password=8055 dbname=pumacon port=5432 sslmode=disable TimeZone=Asia/Jakarta"
 
-	db, errDb = gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	// --- SAMPAI SINI ---
+	db, errDb = gorm.Open(postgres.Open(dsn), &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true,
+	})
 
 	if errDb != nil {
 		panic("Gagal koneksi ke database PostgreSQL: " + errDb.Error())
 	}
 	fmt.Println("Berhasil koneksi ke database PostgreSQL!")
 
-	// Migrasi schema
 	errMigrate := db.AutoMigrate(
-		&admin.Employee{},
-		&admin.EmployeeAddress{},
-		&admin.EmployeeAccount{},
-		&admin.Department{},
-		&admin.ProductCategory{},
-		&admin.Product{},
-		&admin.ProductImage{},
-		&user.Customer{},
-		&user.CustomerDetail{},
-		&user.CustomerAddress{},
+		&models.Employee{},
+		&models.EmployeeAddress{},
+		&models.EmployeeAccount{},
+		&models.Department{},
+		&models.ProductCategory{},
+		&models.Product{},
+		&models.ProductImage{},
+
+		&models.Customer{},
+		&models.CustomerDetail{},
+		&models.CustomerAddress{},
+		&models.Cart{},
+		&models.Order{},
+		&models.OrderItem{},
+		&models.NewsCategory{},
+		&models.NewsPost{},
 	)
 	if errMigrate != nil {
 		panic("Gagal migrasi database: " + errMigrate.Error())
@@ -182,19 +186,21 @@ func main() {
 	adminsvc := admin.NewService(db, []byte(jwtSecretAdmin))
 	adminhandler := admin.NewHandler(adminsvc)
 
-	// Inisialisasi Gin router
 	r := gin.Default()
 
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{"http://localhost:5174", "http://localhost:5173"}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
-	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"} // Pastikan Authorization diizinkan
-	// config.AllowCredentials = true // Jika Anda menggunakan cookies atau credentials
+	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
 	r.Use(cors.New(config))
 
 	r.Static("/uploads", "./uploads")
 
-	// Rute untuk User (Authenticated) - BARU
+	r.GET("/products", userhandler.ListPublicProductsAndCategories)
+	r.GET("/products/:productSKU", userhandler.GetPublicProductDetail)
+	r.GET("/news", userhandler.GetNewsPageData)
+	r.GET("/news/:newsId", userhandler.GetNewsDetailPageData)
+
 	userApi := r.Group("/user")
 	{
 		userApi.POST("/register", userhandler.RegisterCustomer)
@@ -204,15 +210,22 @@ func main() {
 		authenticatedUser.Use(CustomerAuthMiddleware([]byte(jwtSecretUser)))
 		{
 			authenticatedUser.GET("/profile", userhandler.GetCustomerProfile)
-			authenticatedUser.GET("/addresses", userhandler.GetAddresses)
-			authenticatedUser.POST("/addresses", userhandler.AddAddress)
-			authenticatedUser.PUT("/addresses/:id", userhandler.UpdateAddress)
 			authenticatedUser.PUT("/profile", userhandler.UpdateCustomerProfile)
 			authenticatedUser.PUT("/password", userhandler.ChangeCustomerPassword)
+
+			authenticatedUser.GET("/addresses", userhandler.ListCustomerAddresses)
+			authenticatedUser.POST("/addresses", userhandler.AddCustomerAddress)
+			authenticatedUser.PUT("/addresses/:addressId", userhandler.UpdateCustomerAddress)
+			authenticatedUser.POST("/cart", userhandler.AddToCart)
+			authenticatedUser.GET("/cart", userhandler.GetCartItems)
+			authenticatedUser.PUT("/cart/:cartItemId", userhandler.UpdateCartItemQuantity)
+			authenticatedUser.DELETE("/cart/:cartItemId", userhandler.RemoveCartItem)
+
+			authenticatedUser.POST("/orders", userhandler.CreateOrder)
+			authenticatedUser.GET("/orders", userhandler.ListCustomerOrders)
 		}
 	}
 
-	// Rute untuk Admin
 	adminApiRoutes := r.Group("/admin")
 	{
 		adminApiRoutes.GET("/profile", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.GetAdminProfile)
@@ -240,9 +253,27 @@ func main() {
 		adminApiRoutes.GET("/products/:productSKU", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.GetProductBySKU)
 		adminApiRoutes.PUT("/products/:productSKU", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.UpdateProduct)
 		adminApiRoutes.DELETE("/products/:productSKU", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.DeleteProduct)
+		adminApiRoutes.GET("/orders", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.ListAllOrders)
+		adminApiRoutes.GET("/orders/:orderId", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.GetOrderDetailForAdmin)
+		adminApiRoutes.PUT("/orders/:orderId", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.UpdateOrderStatus)
+		adminApiRoutes.DELETE("/orders/:orderId", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.DeleteOrder)
+		adminApiRoutes.GET("/customers", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.ListOrderedCustomers)
+		adminApiRoutes.GET("/customers/:customerId", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.GetCustomerDetailForAdmin)
+		adminApiRoutes.DELETE("/customers/:customerId", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.DeleteCustomer)
+		adminApiRoutes.POST("/news-categories", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.AddNewsCategory)
+		adminApiRoutes.GET("/news-categories", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.ListNewsCategories)
+		adminApiRoutes.GET("/news-categories/list-active", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.ListActiveNewsCategories)
+		adminApiRoutes.GET("/news-categories/:categoryId", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.GetNewsCategoryByID)
+		adminApiRoutes.PUT("/news-categories/:categoryId", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.UpdateNewsCategory)
+		adminApiRoutes.DELETE("/news-categories/:categoryId", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.DeleteNewsCategory)
+		adminApiRoutes.POST("/news-posts", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.AddNewsPost)
+		adminApiRoutes.GET("/news-posts", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.ListNewsPosts)
+		adminApiRoutes.GET("/news-posts/:newsId", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.GetNewsPostByID)
+		adminApiRoutes.PUT("/news-posts/:newsId", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.UpdateNewsPost)
+		adminApiRoutes.DELETE("/news-posts/:newsId", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.DeleteNewsPost)
+		adminApiRoutes.GET("/dashboard-summary", AdminAuthMiddleware([]byte(jwtSecretAdmin)), adminhandler.GetDashboardStatistics)
 	}
 
-	// Jalankan server
 	fmt.Println("Server berjalan di port 8080...")
 	r.Run(":8080")
 }

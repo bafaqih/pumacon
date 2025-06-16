@@ -1,29 +1,25 @@
-// src/pages/EditDepartment.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import ReactQuill from 'react-quill-new'; // Asumsi 'react-quill' adalah yang benar
-import { useAuth } from '../contexts/AuthContext'; // Sesuaikan path jika perlu
-import api from '../services/api'; // Sesuaikan path jika perlu
+import ReactQuill from 'react-quill-new';
+import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
 
-const EditDepartment = () => { // Nama komponen diubah menjadi EditDepartment
-  const { departmentId: paramDepartmentId } = useParams(); // Ambil departmentId dari URL
+const EditDepartment = () => { 
+  const { departmentId: paramDepartmentId } = useParams(); 
   const navigate = useNavigate();
   const { token, logout } = useAuth();
 
-  // State untuk loading dan pesan
-  const [loading, setLoading] = useState(false);         // Untuk proses submit
-  const [loadingData, setLoadingData] = useState(true); // Untuk fetch data awal
+  const [loading, setLoading] = useState(false);         
+  const [loadingData, setLoadingData] = useState(true); 
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // State untuk form fields department
-  const [departmentIdDisplay, setDepartmentIdDisplay] = useState(''); // Untuk menampilkan Department ID (read-only)
+  const [departmentIdDisplay, setDepartmentIdDisplay] = useState(''); 
   const [departmentName, setDepartmentName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('active'); 
-  const [validated, setValidated] = useState(false); // Untuk validasi Bootstrap
+  const [validated, setValidated] = useState(false); 
 
-  // useEffect untuk mengambil data departemen yang akan diedit
   useEffect(() => {
     const fetchDepartmentData = async () => {
       if (!paramDepartmentId || !token) {
@@ -35,14 +31,12 @@ const EditDepartment = () => { // Nama komponen diubah menjadi EditDepartment
       setLoadingData(true);
       setErrorMessage('');
       try {
-        // Panggil API untuk mendapatkan detail departemen
-        const response = await api.get(`/admin/departments/${paramDepartmentId}`, { // Endpoint GET detail departemen
+        const response = await api.get(`/admin/departments/${paramDepartmentId}`, { 
           headers: { Authorization: `Bearer ${token}` },
         });
-        // Asumsi backend mengembalikan { department: {...} } atau langsung objek department
         const dept = response.data.department || response.data; 
         if (dept) {
-          setDepartmentIdDisplay(dept.DepartmentID); // DepartmentID dari data backend
+          setDepartmentIdDisplay(dept.DepartmentID);
           setDepartmentName(dept.DepartmentName || '');
           setDescription(dept.Description || '');
           setStatus(dept.Status || 'active');
@@ -90,27 +84,21 @@ const EditDepartment = () => { // Nama komponen diubah menjadi EditDepartment
     }
 
     const departmentDataToUpdate = {
-      // DepartmentID tidak dikirim di body JSON, karena ada di URL dan tidak boleh diubah
       department_name: departmentName,
       description: description,
       status: status,
     };
 
     try {
-      // Panggil API PUT untuk update departemen
       const response = await api.put(`/admin/departments/${paramDepartmentId}`, departmentDataToUpdate, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json', // Pastikan content type JSON
+          'Content-Type': 'application/json',
         },
       });
 
       setSuccessMessage(response.data.message || 'Departemen berhasil diupdate!');
-      // Tidak perlu reset form di halaman edit, biarkan data yang baru disimpan ditampilkan
-      // Atau Anda bisa memuat ulang data dari server jika perlu
       setValidated(false);
-
-      // Opsional: Arahkan kembali ke daftar departemen setelah beberapa detik
       setTimeout(() => {
         navigate('/dashboard/departments');
       }, 2000);
@@ -137,7 +125,6 @@ const EditDepartment = () => { // Nama komponen diubah menjadi EditDepartment
     );
   }
 
-  // Jika error saat fetch data awal dan tidak ada departmentName (indikasi data belum terload)
   if (errorMessage && !departmentName && !loadingData) { 
       return (
           <main className="main-content-wrapper">
@@ -182,7 +169,6 @@ const EditDepartment = () => { // Nama komponen diubah menjadi EditDepartment
                 <div className="card-body p-6">
                   <h4 className="mb-4 h5 mt-0">Department Information</h4>
                   <div className="row">
-                    {/* Department ID (Read-Only) */}
                     <div className="mb-3 col-lg-6">
                       <label className="form-label" htmlFor="departmentIdDisplayInput">Department ID</label>
                       <input 
@@ -195,8 +181,6 @@ const EditDepartment = () => { // Nama komponen diubah menjadi EditDepartment
                         style={{ backgroundColor: '#e9ecef' }}
                       />
                     </div>
-
-                    {/* Department Name */}
                     <div className="mb-3 col-lg-6">
                       <label className="form-label" htmlFor="departmentNameInput">Department Name <span className="text-danger">*</span></label>
                       <input 
@@ -211,9 +195,7 @@ const EditDepartment = () => { // Nama komponen diubah menjadi EditDepartment
                       />
                       <div className="invalid-feedback">Please enter department name.</div>
                     </div>
-                    
-                    {/* Descriptions */}
-                    <div className="mb-3 col-lg-12" style={{minHeight: '250px', marginBottom: '40px' }}> {/* Penyesuaian margin bawah */}
+                    <div className="mb-3 col-lg-12" style={{minHeight: '250px', marginBottom: '40px' }}>
                       <label className="form-label">Description</label>
                         <ReactQuill
                         theme="snow"
@@ -224,9 +206,7 @@ const EditDepartment = () => { // Nama komponen diubah menjadi EditDepartment
                         readOnly={loading || loadingData}
                       />
                     </div>
-
-                    {/* Status */}
-                    <div className="mb-3 col-lg-12 mt-3"> {/* Penyesuaian margin atas */}
+                    <div className="mb-3 col-lg-12 mt-3">
                       <label className="form-label d-block" id="departmentStatusLabel">Status <span className="text-danger">*</span></label>
                       <div className="form-check form-check-inline">
                         <input 
@@ -255,8 +235,6 @@ const EditDepartment = () => { // Nama komponen diubah menjadi EditDepartment
                         <label className="form-check-label" htmlFor="statusInactiveEditDept">Inactive</label>
                       </div>
                     </div>
-                    
-                    {/* Tombol Aksi */}
                     <div className="col-lg-12 mt-4">
                       <button type="submit" className="btn btn-primary" disabled={loading || loadingData}>
                         {loading ? 'Saving...' : 'Save Changes'}
@@ -276,4 +254,4 @@ const EditDepartment = () => { // Nama komponen diubah menjadi EditDepartment
   );
 };
 
-export default EditDepartment; // Nama komponen diubah
+export default EditDepartment;

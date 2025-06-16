@@ -1,23 +1,18 @@
-// src/pages/Products.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext'; // Sesuaikan path
-import api from '../services/api'; // Sesuaikan path
+import { useAuth } from '../contexts/AuthContext'; 
+import api from '../services/api';
 
 const Products = () => {
   const [productsList, setProductsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState(''); // Untuk pesan sukses (misal setelah delete)
-
-  // State untuk filter (opsional, bisa dikembangkan)
-  // const [searchTerm, setSearchTerm] = useState('');
-  // const [statusFilter, setStatusFilter] = useState(''); // Untuk filter Published/Unpublished
+  const [successMessage, setSuccessMessage] = useState('');
 
   const { token, logout } = useAuth();
   const navigate = useNavigate();
 
-  const defaultProductImage = '/assets/images/products/default-product.png'; // Sediakan gambar default
+  const defaultProductImage = '/assets/images/products/default-image.jpg';
   const backendAssetBaseUrl = 'http://localhost:8080';
 
   const getProductImageUrl = (imagesArray) => {
@@ -34,15 +29,15 @@ const Products = () => {
 
   const formatPrice = (price) => {
     if (price === null || price === undefined) return 'Rp -';
-    return `Rp${Number(price).toLocaleString('id-ID')}`; // Format Rupiah
+    return `Rp${Number(price).toLocaleString('id-ID')}`; 
   };
 
   const getStatusClass = (status) => {
     if (!status) return 'bg-light-secondary text-dark-secondary';
     if (status.toLowerCase() === 'published') {
-      return 'bg-light-success text-dark-success'; // Sebelumnya bg-light-primary
+      return 'bg-light-success text-dark-success'; 
     } else if (status.toLowerCase() === 'unpublished') {
-      return 'bg-light-warning text-dark-warning'; // Sebelumnya bg-light-danger
+      return 'bg-light-warning text-dark-warning'; 
     }
     return 'bg-light-secondary text-dark-secondary';
   };
@@ -53,12 +48,9 @@ const Products = () => {
     }
     setLoading(true); setError(''); setSuccessMessage('');
     try {
-      // Endpoint ini akan kita buat di backend
       const response = await api.get('/admin/products', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Asumsi backend mengembalikan { products: [...] } atau langsung array [...]
-      // Setiap produk memiliki ProductSKU, Title, ProductCategory (objek dengan CategoryName), Status, RegularPrice, Stock, Images (array)
       setProductsList(response.data.products || response.data || []);
     } catch (err) {
       console.error("Error fetching products:", err);
@@ -85,7 +77,6 @@ const Products = () => {
     setError(''); setSuccessMessage('');
 
     try {
-      // Endpoint ini akan kita buat di backend
       await api.delete(`/admin/products/${productSKU}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -174,13 +165,12 @@ const Products = () => {
                                 <img 
                                   src={getProductImageUrl(product.Images)} 
                                   alt={product.Title} 
-                                  className="icon-shape icon-md" // Mungkin perlu class avatar atau styling berbeda
+                                  className="icon-shape icon-md" 
                                   onError={(e) => { e.target.onerror = null; e.target.src=defaultProductImage; }}
                                 />
                               </Link>
                             </td>
                             <td><Link to={`/dashboard/products/${product.ProductSKU}/edit`} className="text-reset">{product.Title}</Link></td>
-                            {/* Tampilkan nama kategori dari objek ProductCategory yang di-preload */}
                             <td>{product.ProductCategory?.CategoryName || 'N/A'}</td>
                             <td><span className={`badge ${getStatusClass(product.Status)}`}>{product.Status}</span></td>
                             <td>{formatPrice(product.RegularPrice)}</td>

@@ -1,4 +1,4 @@
-var MotaAdmin = function(){
+var PumaCon = function(){
 	'use strict';
 	
 	var screenWidth = $( window ).width();
@@ -453,7 +453,7 @@ var MotaAdmin = function(){
 	
 /* Document.ready Start */	
 jQuery(document).ready(function() {
-    MotaAdmin.init();
+    PumaCon.init();
 	
 	jQuery('.navicon').on('click',function(){
 		$(this).toggleClass('open');
@@ -470,7 +470,7 @@ jQuery(document).ready(function() {
 
 /* Window Load START */
  jQuery(window).on('load',function () {
-	MotaAdmin.load();
+	PumaCon.load();
 	
 	setTimeout(function(){		
 		jQuery('#loading-area').addClass('active');
@@ -486,7 +486,7 @@ jQuery(document).ready(function() {
 
 /* Window Resize START */
 jQuery(window).on('resize',function () {
-	MotaAdmin.resize();
+	PumaCon.resize();
 	
 });
 /*  Window Resize END */

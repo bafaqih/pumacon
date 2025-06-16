@@ -7,15 +7,14 @@ const ForgotPasswordModal = ({ show, handleClose, onSwitchToLogin, onSubmitForgo
   const handleSubmit = (e) => {
     e.preventDefault();
     if (onSubmitForgotPassword) {
-      onSubmitForgotPassword(email); // Kirim email ke fungsi handler di Navbar
+      onSubmitForgotPassword(email);
     }
-    // Biasanya, Anda akan menutup modal setelah submit berhasil atau menampilkan pesan
-    // handleClose(); // Bisa ditutup di sini atau di handler onSubmitForgotPassword
+
   };
 
   const handleBackToLoginClick = () => {
     if (onSwitchToLogin) {
-      onSwitchToLogin(); // Panggil fungsi untuk kembali ke modal login
+      onSwitchToLogin(); 
     }
   };
 
@@ -24,8 +23,8 @@ const ForgotPasswordModal = ({ show, handleClose, onSwitchToLogin, onSubmitForgo
       show={show} 
       onHide={handleClose} 
       centered 
-      dialogClassName="forgot-password-modal-dialog-custom" // Kelas kustom jika perlu
-      contentClassName="rounded-0" // Modal siku
+      dialogClassName="forgot-password-modal-dialog-custom"
+      contentClassName="rounded-0"
     >
       <Modal.Body className="p-4 p-md-5 position-relative"> 
         <CloseButton

@@ -30,7 +30,6 @@ const SidebarNav = () => {
 
     return (
         <ul className="navbar-nav flex-column" id="sideNavbar">
-            {/* Sticky Dashboard */}
             <div className="sticky-top bg-white z-1 pt-2">
                 <li className="nav-item">
                     <NavLink className="nav-link" to="/dashboard" end>
@@ -42,7 +41,6 @@ const SidebarNav = () => {
                 </li>
             </div>
             <li className="nav-item mt-6 mb-3"><span className="nav-label">Store Managements</span></li>
-            {/* Products Dropdown */}
             <li className="nav-item">
                 <a
                     className={`nav-link ${!isProductsActive ? 'collapsed' : ''}`}
@@ -71,14 +69,30 @@ const SidebarNav = () => {
                 </div>
             </li>
 
-            {/* Orders */}
             <li className="nav-item">
-                <NavLink className="nav-link" to="/dashboard/orders">
+                <a
+                    className={`nav-link ${!isOrdersActive ? 'collapsed' : ''}`}
+                    href="#"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#navOrders"
+                    aria-expanded={isOrdersActive ? 'true' : 'false'}
+                    aria-controls="navOrders"
+                >
                     <div className="d-flex align-items-center">
                         <span className="nav-link-icon"><i className="bi bi-shop"></i></span>
                         <span className="nav-link-text">Orders</span>
                     </div>
-                </NavLink>
+                </a>
+                <div
+                    id="navOrders"
+                    className={`collapse ${isOrdersActive ? 'show' : ''}`}
+                    data-bs-parent="#sideNavbar"
+                >
+                    <ul className="nav flex-column">
+                        <li className="nav-item"><NavLink className="nav-link" to="/dashboard/orders" end>Order List</NavLink></li>
+                        <li className="nav-item"><NavLink className="nav-link" to="/dashboard/orders/history">Order History</NavLink></li>
+                    </ul>
+                </div>
             </li>
 
             {/* Customers */}

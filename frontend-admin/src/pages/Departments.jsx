@@ -1,34 +1,28 @@
-// src/pages/Departments.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext'; // Sesuaikan path jika perlu
-import api from '../services/api'; // Sesuaikan path jika perlu
+import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api'; 
 
 const Departments = () => {
   const [departmentsList, setDepartmentsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState(''); // Untuk pesan sukses (misal setelah delete)
-  // State untuk filter (opsional, bisa dikembangkan lebih lanjut)
-  // const [searchTerm, setSearchTerm] = useState('');
-  // const [statusFilter, setStatusFilter] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
 
   const { token, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Fungsi untuk menentukan kelas badge berdasarkan status (sudah ada dan bagus)
   const getStatusClass = (status) => {
-    if (!status) return 'bg-light-secondary text-dark-secondary'; // Fallback jika status null/undefined
+    if (!status) return 'bg-light-secondary text-dark-secondary';
     if (status.toLowerCase() === 'active') {
       return 'bg-light-success text-dark-success';
     } else if (status.toLowerCase() === 'inactive') {
       return 'bg-light-danger text-dark-danger';
     }
-    return 'bg-light-secondary text-dark-secondary'; // Fallback
+    return 'bg-light-secondary text-dark-secondary';
   };
 
-  // Fungsi untuk mengambil daftar departemen
   const fetchDepartments = useCallback(async () => {
     if (!token) {
       setError("Autentikasi dibutuhkan untuk melihat data departemen.");
@@ -37,12 +31,11 @@ const Departments = () => {
     }
     setLoading(true);
     setError('');
-    setSuccessMessage(''); // Bersihkan pesan sukses saat fetch ulang
+    setSuccessMessage(''); 
     try {
-      const response = await api.get('/admin/departments', { // Endpoint list department dengan employee count
+      const response = await api.get('/admin/departments', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Asumsi backend mengembalikan { departments: [...] }
       setDepartmentsList(response.data.departments || []);
     } catch (err) {
       console.error("Error fetching departments:", err);
@@ -60,9 +53,8 @@ const Departments = () => {
 
   useEffect(() => {
     fetchDepartments();
-  }, [fetchDepartments]); // Panggil fetchDepartments saat komponen mount atau dependensi berubah
+  }, [fetchDepartments]);
 
-  // Fungsi untuk menangani delete department
   const handleDeleteDepartment = async (departmentId, departmentName) => {
     if (!window.confirm(`Apakah Anda yakin ingin menghapus departemen "${departmentName}" (ID: ${departmentId})? Karyawan yang ada di departemen ini mungkin perlu dipindahkan terlebih dahulu.`)) {
       return;
@@ -80,7 +72,6 @@ const Departments = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSuccessMessage(`Departemen "${departmentName}" berhasil dihapus.`);
-      // Update daftar departemen di UI
       setDepartmentsList(prevList => prevList.filter(dept => dept.DepartmentID !== departmentId));
     } catch (err) {
       console.error(`Error deleting department ${departmentId}:`, err);
@@ -89,7 +80,6 @@ const Departments = () => {
         logout();
         navigate('/dashboard/login', { replace: true });
       } else {
-        // Tangani error spesifik dari backend (misal, tidak bisa hapus karena masih ada employee)
         setError(err.response?.data?.error || `Gagal menghapus departemen ${departmentId}.`);
       }
     }
@@ -118,7 +108,6 @@ const Departments = () => {
           </div>
         </div>
 
-        {/* Tampilkan pesan sukses atau error global untuk halaman ini */}
         {successMessage && <div className="alert alert-success" role="alert">{successMessage}</div>}
         {error && <div className="alert alert-danger" role="alert">{error}</div>}
 
@@ -130,7 +119,6 @@ const Departments = () => {
                   <div className="col-lg-4 col-md-6 col-12 mb-2 mb-md-0">
                     <form className="d-flex" role="search">
                       <input className="form-control" type="search" placeholder="Search Department" aria-label="Search" />
-                      {/* Logika search bisa ditambahkan nanti (client-side atau server-side) */}
                     </form>
                   </div>
                   <div className="col-xl-2 col-md-4 col-12">
@@ -138,7 +126,6 @@ const Departments = () => {
                       <option value="">All Status</option>
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
-                      {/* Logika filter status bisa ditambahkan nanti */}
                     </select>
                   </div>
                 </div>
@@ -162,7 +149,7 @@ const Departments = () => {
                           <th>Department Name</th>
                           <th>Employees</th>
                           <th>Status</th>
-                          <th></th> {/* Kolom untuk action dropdown */}
+                          <th></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -175,12 +162,11 @@ const Departments = () => {
                               </div>
                             </td>
                             <td>
-                              {/* Link ke halaman Edit Department */}
                               <Link to={`/dashboard/departments/${dept.DepartmentID}/edit`} className="text-reset">
                                 {dept.DepartmentName}
                               </Link>
                             </td>
-                            <td>{dept.EmployeeCount}</td> {/* Menampilkan employeeCount dari API */}
+                            <td>{dept.EmployeeCount}</td>
                             <td>
                               <span className={`badge ${getStatusClass(dept.Status)}`}>{dept.Status}</span>
                             </td>
@@ -191,13 +177,11 @@ const Departments = () => {
                                 </Link>
                                 <ul className="dropdown-menu">
                                   <li>
-                                    {/* Link ke halaman Edit Department */}
                                     <Link className="dropdown-item" to={`/dashboard/departments/${dept.DepartmentID}/edit`}>
                                       <i className="bi bi-pencil-square me-3"></i> Edit
                                     </Link>
                                   </li>
                                   <li>
-                                    {/* Tombol Delete */}
                                     <button 
                                       className="dropdown-item text-danger" 
                                       onClick={() => handleDeleteDepartment(dept.DepartmentID, dept.DepartmentName)}

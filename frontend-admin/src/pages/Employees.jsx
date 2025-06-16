@@ -1,8 +1,7 @@
-// src/pages/Employees.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext'; // Sesuaikan path ke AuthContext.jsx Anda
-import api from '../services/api'; // Sesuaikan path ke api.js Anda
+import { useAuth } from '../contexts/AuthContext'; 
+import api from '../services/api'; 
 
 const Employees = () => {
   const [employeesList, setEmployeesList] = useState([]);
@@ -17,8 +16,8 @@ const Employees = () => {
   const { token, logout } = useAuth();
   const navigate = useNavigate();
 
-  const defaultAvatar = '/assets/images/avatar/avatar-1.jpg'; // Sediakan gambar default di folder public/assets Anda
-  const backendAssetBaseUrl = 'http://localhost:8080'; // Sesuaikan jika base URL backend Anda berbeda
+  const defaultAvatar = '/assets/images/avatar/avatar-1.jpg';
+  const backendAssetBaseUrl = 'http://localhost:8080';
 
   const getProfileImageUrl = (imagePath) => {
     if (!imagePath) return defaultAvatar;
@@ -31,20 +30,17 @@ const Employees = () => {
     if (!dateString) return '-';
     try {
       const date = new Date(dateString);
-      // Format: DD Mon, YYYY (contoh: 01 Jan, 2023)
       return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     } catch (e) {
       console.error("Error formatting date:", dateString, e);
-      return dateString; // Kembalikan string asli jika parsing gagal
+      return dateString;
     }
   };
 
   const fetchEmployees = useCallback(async () => {
     if (!token) {
       setError("Autentikasi dibutuhkan untuk melihat data karyawan.");
-      setLoading(false);
-      // logout(); // Opsional: logout jika token tiba-tiba hilang
-      // navigate('/dashboard/login', { replace: true }); // Opsional: redirect
+      setLoading(false);t
       return;
     }
     setLoading(true);
@@ -53,9 +49,6 @@ const Employees = () => {
       const response = await api.get('/admin/employees', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Asumsi backend mengembalikan array of employees di response.data atau response.data.employees
-      // Setiap employee HARUS memiliki EmployeeID, FullName, Email, Phone, Department, JoinDate,
-      // dan objek Address jika ada.
       setEmployeesList(response.data.employees || response.data || []);
     } catch (err) {
       console.error("Error fetching employees:", err);
@@ -69,11 +62,11 @@ const Employees = () => {
     } finally {
       setLoading(false);
     }
-  }, [token, navigate, logout]); // useCallback dependencies
+  }, [token, navigate, logout]);
 
   useEffect(() => {
     fetchEmployees();
-  }, [fetchEmployees]); // Panggil fetchEmployees saat komponen mount atau dependensi berubah
+  }, [fetchEmployees]);
 
   const handleViewEmployeeInOffcanvas = async (employeeId) => {
     if (!token) {
@@ -87,9 +80,6 @@ const Employees = () => {
       const response = await api.get(`/admin/employees/${employeeId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Asumsi backend mengembalikan satu objek employee di response.data atau response.data.employee
-      // dan objek ini memiliki Image, FullName, Status, EmployeeID, Role, Email, Phone, Department, JoinDate, Birthday,
-      // dan objek Address (Street, DistrictCity, Province, PostCode, Country).
       setSelectedEmployee(response.data.employee || response.data);
     } catch (err) {
       console.error(`Error fetching employee ${employeeId} details:`, err);
@@ -106,34 +96,28 @@ const Employees = () => {
   };
 
   const handleDeleteEmployee = async (employeeId, employeeName) => {
-    // Tampilkan konfirmasi sebelum menghapus
     if (!window.confirm(`Apakah Anda yakin ingin menghapus karyawan "${employeeName}" (ID: ${employeeId})? Tindakan ini tidak dapat diurungkan.`)) {
       return;
     }
 
     if (!token) {
       setDeleteError("Autentikasi dibutuhkan.");
-      // logout(); navigate('/dashboard/login'); // Opsional redirect
       return;
     }
 
     setDeleteError('');
     setDeleteSuccess('');
-    // Anda bisa menambahkan state loading spesifik untuk tombol delete jika mau
 
     try {
       await api.delete(`/admin/employees/${employeeId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setDeleteSuccess(`Karyawan "${employeeName}" berhasil dihapus.`);
-      // Update daftar karyawan di UI dengan menghapus karyawan yang baru saja dihapus
       setEmployeesList(prevList => prevList.filter(emp => emp.EmployeeID !== employeeId));
-      // Jika offcanvas menampilkan detail karyawan yang dihapus, tutup atau clear
       if (selectedEmployee && selectedEmployee.EmployeeID === employeeId) {
         setSelectedEmployee(null);
-        // Anda mungkin perlu menutup offcanvas secara manual jika ia tidak menutup otomatis
         const offcanvasElement = document.getElementById('offcanvasEmployeeDetail');
-        if (offcanvasElement && bootstrap.Offcanvas.getInstance(offcanvasElement)) { // Perlu import bootstrap jika belum
+        if (offcanvasElement && bootstrap.Offcanvas.getInstance(offcanvasElement)) {
             bootstrap.Offcanvas.getInstance(offcanvasElement).hide();
         }
       }
@@ -187,7 +171,6 @@ const Employees = () => {
                         <input className="form-control" type="search" id="searchEmployees" placeholder="Search Employees" aria-label="Search" />
                       </form>
                     </div>
-                    {/* Tambahkan filter atau tombol lain di sini jika perlu */}
                   </div>
                 </div>
                 <div className="card-body p-0">
@@ -212,7 +195,7 @@ const Employees = () => {
                             <th>Phone</th>
                             <th>Department</th>
                             <th>Join Date</th>
-                            <th></th> {/* Kolom untuk action dropdown */}
+                            <th></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -242,7 +225,7 @@ const Employees = () => {
                               <td>
                                 <div className="dropdown">
                                   <Link to="#" className="text-reset" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i className="feather-icon icon-more-vertical fs-5"></i> {/* Pastikan Anda punya ikon ini atau ganti */}
+                                    <i className="feather-icon icon-more-vertical fs-5"></i>
                                   </Link>
                                   <ul className="dropdown-menu">
                                     <li>
@@ -283,7 +266,7 @@ const Employees = () => {
                   )}
                   {!loading && !error && employeesList.length > 0 && (
                      <div className="border-top d-md-flex justify-content-between align-items-center p-6">
-                        <span>Showing 1 to {employeesList.length} of {employeesList.length} entries</span> {/* Perlu disesuaikan dengan pagination backend */}
+                        <span>Showing 1 to {employeesList.length} of {employeesList.length} entries</span> 
                         <nav className="mt-2 mt-md-0">
                             <ul className="pagination mb-0">
                                 <li className="page-item disabled"><Link className="page-link" to="#!">Previous</Link></li>
@@ -300,17 +283,16 @@ const Employees = () => {
         </div>
       </main>
 
-      {/* Offcanvas untuk Detail Karyawan */}
       <div className="offcanvas offcanvas-end" tabIndex="-1" id="offcanvasEmployeeDetail" aria-labelledby="offcanvasEmployeeDetailLabel">
         <div className="offcanvas-header border-bottom">
           <h5 className="offcanvas-title" id="offcanvasEmployeeDetailLabel">Employee Details</h5>
           <button type="button" className="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
-        <div className="offcanvas-body d-flex flex-column"> {/* Konten akan diisi secara kondisional */}
+        <div className="offcanvas-body d-flex flex-column">
             {loadingDetail && <div className="text-center p-5">Loading details...</div>}
             {errorDetail && <div className="alert alert-danger m-3">{errorDetail}</div>}
             {!loadingDetail && !errorDetail && selectedEmployee ? (
-                <div className="d-flex flex-column gap-4"> {/* Wrapper untuk konten jika ada data */}
+                <div className="d-flex flex-column gap-4">
                     <div className="d-flex flex-row align-items-center gap-4 w-100">
                         <div className="flex-shrink-0">
                             <img 
@@ -326,7 +308,6 @@ const Employees = () => {
                                 {selectedEmployee.Status === 'active' && <span className="badge bg-light-success text-dark-success">Active</span>}
                                 {selectedEmployee.Status === 'inactive' && <span className="badge bg-light-danger text-dark-danger">Inactive</span>}
                                 {selectedEmployee.Status === 'on_leave' && <span className="badge bg-light-warning text-dark-warning">On Leave</span>}
-                                {/* Tambahkan status lain jika ada */}
                             </h3>
                             <div className="d-md-flex align-items-center justify-content-between">
                                 <div className="">ID: {selectedEmployee.EmployeeID}</div>

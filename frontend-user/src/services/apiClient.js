@@ -1,16 +1,12 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080', // baseURL tetap sama
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: 'http://localhost:8080',
 });
 
-// Interceptor untuk menambahkan token customer ke setiap request jika ada
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('customerAuthToken'); // Menggunakan key token yang berbeda
+    const token = localStorage.getItem('customerAuthToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

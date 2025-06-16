@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom'; // Tambahkan useLocation
-import { useAuth } from '../contexts/AuthContext'; // <--- 1. IMPORT useAuth (SESUAIKAN PATH)
+import { Link, useNavigate, useLocation } from 'react-router-dom'; 
+import { useAuth } from '../contexts/AuthContext'; 
 
 const logoPath = '/logo.png';
 const backgrounds = [
@@ -15,19 +15,16 @@ const Login = () => {
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  // const [rememberMe, setRememberMe] = useState(false); // Diabaikan sementara
   const [currentBackgroundIndex, setCurrentBackgroundIndex] = useState(0);
   
   const [isFocusedId, setIsFocusedId] = useState(false);
   const [isFocusedPass, setIsFocusedPass] = useState(false);
 
-  // --- 2. STATE UNTUK ERROR LOKAL & AKSES DARI AuthContext ---
   const [localError, setLocalError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const { login, loading, authError, clearAuthError, isLoggedIn } = useAuth();
 
-  // --- 3. useEffect UNTUK REDIRECT JIKA SUDAH LOGIN & CLEAR GLOBAL ERROR ---
   useEffect(() => {
     if (isLoggedIn) {
       const from = location.state?.from?.pathname || '/dashboard';
@@ -38,7 +35,6 @@ const Login = () => {
     }
   }, [isLoggedIn, navigate, location.state, authError, clearAuthError]);
 
-  // useEffect untuk slideshow (tetap sama)
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentBackgroundIndex((prevIndex) => (prevIndex + 1) % backgrounds.length);
@@ -46,12 +42,11 @@ const Login = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // --- 4. MODIFIKASI handleSubmit ---
-  const handleSubmit = async (event) => { // Jadikan async
+  const handleSubmit = async (event) => { 
     event.preventDefault();
-    setLocalError(''); // Bersihkan error lokal
+    setLocalError(''); 
     if (typeof clearAuthError === 'function') {
-      clearAuthError(); // Bersihkan error global dari context
+      clearAuthError(); 
     }
 
     const form = event.currentTarget;
@@ -60,15 +55,12 @@ const Login = () => {
       form.classList.add('was-validated');
       return;
     }
-    // Tidak perlu form.classList.add('was-validated') di sini jika menangani error dengan state
 
     try {
-      await login(employeeId, password); // Panggil fungsi login dari AuthContext
-      // Jika berhasil, useEffect di atas akan redirect, atau bisa redirect dari sini:
+      await login(employeeId, password); 
       const from = location.state?.from?.pathname || '/dashboard';
       navigate(from, { replace: true });
     } catch (err) {
-      // err.message adalah pesan error yang di-throw dari fungsi login di AuthContext
       setLocalError(err.message || 'Login gagal. Silakan coba lagi.');
       console.error('Login page error:', err);
     }
@@ -80,7 +72,6 @@ const Login = () => {
 
   return (
     <div className="vh-100 w-100 d-flex">
-      {/* Kiri: Form Login */}
       <div
         style={{
           width: '30%',
@@ -91,18 +82,14 @@ const Login = () => {
       >
         <div className="container" style={{ maxWidth: '400px' }}>
           <div className="mb-5">
-            <Link to="/"> {/* Pastikan Link ini sesuai, mungkin ke halaman landing atau /dashboard jika sudah login */}
+            <Link to="/">
               <img src={logoPath} alt="Logo" style={{ height: '50px' }} />
             </Link>
           </div>
           <h5 className="fs-4 fw-bold mb-1">Admin Dashboard Login</h5>
           <p className="mb-4"style={{ fontSize: '0.9rem' }}>Welcome back, please login.</p>
 
-          {/* --- 5. TAMPILKAN localError --- */}
           {localError && <div className="alert alert-danger p-2 mb-3" role="alert" style={{fontSize: '0.85rem'}}>{localError}</div>}
-          {/* Anda bisa juga menampilkan authError dari context jika tidak ditangani oleh localError */}
-          {/* authError && !localError && <div className="alert alert-danger p-2 mb-3" role="alert" style={{fontSize: '0.85rem'}}>{authError}</div> */}
-
 
           <form className="needs-validation" onSubmit={handleSubmit} noValidate>
             <div className="mb-3">
@@ -111,7 +98,7 @@ const Login = () => {
               </label>
               <input
                 type="text"
-                className={`form-control ${localError && !password ? 'is-invalid' : ''}`} // Contoh feedback error
+                className={`form-control ${localError && !password ? 'is-invalid' : ''}`}
                 id="formEmployeeId"
                 placeholder="Employee ID"
                 value={employeeId}
@@ -119,7 +106,7 @@ const Login = () => {
                 onFocus={() => setIsFocusedId(true)}
                 onBlur={() => setIsFocusedId(false)}
                 required
-                disabled={loading} // Disable saat loading
+                disabled={loading}
                 style={{ borderRadius: 0, borderColor: isFocusedId ? '#4885ED' : '#ced4da', boxShadow: isFocusedId ? '0 0 0 0.2rem rgba(72, 133, 237, 0.25)' : 'none', }}
               />
               <div className="invalid-feedback">Please enter your Employee ID.</div>
@@ -130,7 +117,7 @@ const Login = () => {
               </label>
               <input
                 type={showPassword ? 'text' : 'password'}
-                className={`form-control ${localError ? 'is-invalid' : ''}`} // Contoh feedback error
+                className={`form-control ${localError ? 'is-invalid' : ''}`}
                 id="formAdminLoginPassword"
                 placeholder="Password"
                 value={password}
@@ -138,7 +125,7 @@ const Login = () => {
                 onFocus={() => setIsFocusedPass(true)}
                 onBlur={() => setIsFocusedPass(false)}
                 required
-                disabled={loading} // Disable saat loading
+                disabled={loading} 
                 style={{
                   borderRadius: 0,
                   borderColor: isFocusedPass ? '#4885ED' : '#ced4da',
@@ -166,12 +153,11 @@ const Login = () => {
             </div>
 
             <div className="d-grid mb-4">
-              {/* --- 6. UPDATE TOMBOL LOGIN --- */}
               <button 
                 type="submit" 
                 className="btn rounded-0 fw-bold" 
                 style={{ backgroundColor: '#4885ED', color: '#fff', border: 'none' }}
-                disabled={loading} // Disable saat loading
+                disabled={loading}
               >
                 {loading ? 'Logging in...' : 'Login'}
               </button>
@@ -185,9 +171,7 @@ const Login = () => {
             </Link>
           </p>
         </div>
-      </div>
-
-      {/* Kanan: Slideshow (TIDAK DIUBAH) */}
+      </div>    
       <div
         style={{
           width: '70%',

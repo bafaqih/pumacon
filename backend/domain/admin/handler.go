@@ -3,7 +3,8 @@ package admin
 import (
 	"encoding/json"
 
-	"log" // PASTIKAN INI ADA DAN TIDAK DIKOMENTARI
+	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,9 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-// Input untuk registrasi (sudah ada)
-// type RegisterInput struct { ... }
 
 type Handler interface {
 	RegisterAdmin(c *gin.Context)
@@ -42,6 +40,28 @@ type Handler interface {
 	GetProductBySKU(c *gin.Context)
 	UpdateProduct(c *gin.Context)
 	DeleteProduct(c *gin.Context)
+	ListAllOrders(c *gin.Context)
+	GetOrderDetailForAdmin(c *gin.Context)
+	UpdateOrderStatus(c *gin.Context)
+	DeleteOrder(c *gin.Context)
+	ListOrderedCustomers(c *gin.Context)
+	GetCustomerDetailForAdmin(c *gin.Context)
+	DeleteCustomer(c *gin.Context)
+
+	AddNewsCategory(c *gin.Context)
+	ListNewsCategories(c *gin.Context)
+	GetNewsCategoryByID(c *gin.Context)
+	UpdateNewsCategory(c *gin.Context)
+	DeleteNewsCategory(c *gin.Context)
+	AddNewsPost(c *gin.Context)
+	ListActiveNewsCategories(c *gin.Context)
+
+	ListNewsPosts(c *gin.Context)
+	GetNewsPostByID(c *gin.Context)
+	UpdateNewsPost(c *gin.Context)
+	DeleteNewsPost(c *gin.Context)
+
+	GetDashboardStatistics(c *gin.Context)
 }
 
 func NewHandler(svc Service) Handler {
@@ -55,16 +75,14 @@ type handler struct {
 }
 
 func (h *handler) AddEmployee(c *gin.Context) {
-	var input AddEmployeeInput // Dari model.go (package admin)
+	var input AddEmployeeInput
 
-	// Set batas memori untuk parsing multipart form (misal 10 MB)
 	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
 		log.Printf("Error parsing multipart form: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal memproses form data: " + err.Error()})
 		return
 	}
 
-	// 1. Ambil string JSON dari field "jsonData"
 	jsonDataString := c.PostForm("jsonData")
 	if jsonDataString == "" {
 		log.Println("Error: Field 'jsonData' kosong.")
@@ -72,7 +90,6 @@ func (h *handler) AddEmployee(c *gin.Context) {
 		return
 	}
 
-	// 2. Unmarshal string JSON ke struct AddEmployeeInput
 	if err := json.Unmarshal([]byte(jsonDataString), &input); err != nil {
 		log.Printf("Error unmarshalling jsonData: %v\njsonData: %s\n", err, jsonDataString)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data employee tidak valid: " + err.Error()})
@@ -80,30 +97,31 @@ func (h *handler) AddEmployee(c *gin.Context) {
 	}
 	log.Printf("Data employee dari jsonData (sebelum proses file): %+v\n", input)
 
-	// 3. Ambil file dari field "imageFile"
-	fileHeader, err := c.FormFile("imageFile") // "imageFile" adalah key yang dikirim frontend
+	var inputDTO AddEmployeeInput
+	if err := json.Unmarshal([]byte(jsonDataString), &inputDTO); err != nil {
+		log.Printf("[Handler AddEmployee] Error unmarshalling jsonData: %v\nInput: %s\n", err, jsonDataString)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data employee tidak valid: " + err.Error()})
+		return
+	}
+	log.Printf("[Handler AddEmployee] Data dari jsonData berhasil di-parse: %+v\n", inputDTO)
 
-	// Variabel untuk menyimpan path gambar yang akan disimpan ke DB
-	var imagePathForDB string = "" // Default kosong jika tidak ada file
+	fileHeader, err := c.FormFile("imageFile")
 
-	if err == nil && fileHeader != nil { // Ada file yang diupload
-		// Buat nama file unik untuk menghindari konflik dan masalah keamanan
+	var imagePathForDB string = ""
+
+	if err == nil && fileHeader != nil {
 		ext := filepath.Ext(fileHeader.Filename)
-		uniqueFilename := uuid.New().String() + ext // Contoh: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.jpg
+		uniqueFilename := uuid.New().String() + ext
 
-		// Tentukan direktori penyimpanan
-		// Pastikan path ini sesuai dengan yang disajikan oleh r.Static() di main.go
 		uploadDir := "./uploads/images/profile/"
 		savePath := filepath.Join(uploadDir, uniqueFilename)
 
-		// Buat direktori jika belum ada
 		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
 			log.Printf("Error membuat direktori uploads: %v\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyiapkan penyimpanan file."})
 			return
 		}
 
-		// Simpan file yang diupload ke path tujuan
 		if err := c.SaveUploadedFile(fileHeader, savePath); err != nil {
 			log.Printf("Error menyimpan file upload: %v\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan file gambar."})
@@ -111,38 +129,30 @@ func (h *handler) AddEmployee(c *gin.Context) {
 		}
 		log.Printf("File berhasil disimpan ke: %s\n", savePath)
 
-		// Path yang akan disimpan ke database dan dikirim ke frontend (relatif terhadap URL root static)
-		imagePathForDB = strings.TrimPrefix(filepath.ToSlash(savePath), "./") // Hasil: "uploads/images/profile/namaunik.jpg"
-		// Atau jika Anda ingin konsisten selalu ada "uploads/" di depan:
-		// imagePathForDB = "uploads/images/profile/" + uniqueFilename
+		imagePathForDB = strings.TrimPrefix(filepath.ToSlash(savePath), "./")
 
 	} else if err != nil && err != http.ErrMissingFile {
-		// Error lain saat mencoba mendapatkan file (bukan karena file tidak ada)
 		log.Printf("Error mendapatkan file (bukan ErrMissingFile): %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Error memproses file gambar: " + err.Error()})
 		return
 	}
-	// Jika err == http.ErrMissingFile, berarti tidak ada file diupload, imagePathForDB akan tetap kosong. Ini OK.
 
-	// 4. Set field Image di struct input dengan path file yang sudah disimpan (atau kosong)
 	input.Image = imagePathForDB
 	log.Printf("Data input final yang akan dikirim ke service: %+v\n", input)
 
-	// 5. Panggil service untuk menambahkan employee
-	createdEmployee, serviceErr := h.svc.AddEmployee(input) // Service AddEmployee sekarang menerima input dengan Image path
+	createdEmployee, serviceErr := h.svc.AddEmployee(inputDTO, fileHeader)
+
 	if serviceErr != nil {
-		log.Printf("Error dari service AddEmployee: %v\n", serviceErr)
-		// Anda bisa lebih spesifik menangani jenis error di sini
-		if strings.Contains(serviceErr.Error(), "email sudah terdaftar") || strings.Contains(serviceErr.Error(), "duplicate key value violates unique constraint") {
-			c.JSON(http.StatusConflict, gin.H{"error": "Email employee sudah terdaftar."})
+		log.Printf("[Handler AddEmployee] Error dari service: %v\n", serviceErr)
+		if strings.Contains(serviceErr.Error(), "email sudah terdaftar") {
+			c.JSON(http.StatusConflict, gin.H{"error": serviceErr.Error()})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": serviceErr.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menambahkan employee", "details": serviceErr.Error()})
 		return
 	}
 
 	log.Printf("Employee berhasil dibuat oleh service: %+v\n", createdEmployee)
-	// Kirim respons sukses
 	c.JSON(http.StatusCreated, gin.H{
 		"message":  "Employee berhasil ditambahkan",
 		"employee": createdEmployee,
@@ -150,7 +160,7 @@ func (h *handler) AddEmployee(c *gin.Context) {
 }
 
 func (h *handler) RegisterAdmin(c *gin.Context) {
-	var input AdminRegisterInput // Dari model.go
+	var input AdminRegisterInput
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -159,7 +169,6 @@ func (h *handler) RegisterAdmin(c *gin.Context) {
 
 	registeredAdminAccount, err := h.svc.RegisterAdmin(input)
 	if err != nil {
-		// Error spesifik dari service
 		if err.Error() == "employee ID tidak ditemukan, tidak dapat register akun admin" ||
 			err.Error() == "employee ID sudah terdaftar sebagai akun admin" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -171,7 +180,7 @@ func (h *handler) RegisterAdmin(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Akun admin berhasil diregistrasi",
-		"account": gin.H{ // Kirim data yang aman
+		"account": gin.H{
 			"employee_id": registeredAdminAccount.EmployeeID,
 			"fullname":    registeredAdminAccount.FullName,
 			"role":        registeredAdminAccount.Role,
@@ -181,7 +190,7 @@ func (h *handler) RegisterAdmin(c *gin.Context) {
 }
 
 func (h *handler) LoginAdmin(c *gin.Context) {
-	var input AdminLoginInput // Dari model.go
+	var input AdminLoginInput
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -205,9 +214,7 @@ func (h *handler) LoginAdmin(c *gin.Context) {
 }
 
 func (h *handler) GetAdminProfile(c *gin.Context) {
-	// Ambil employee_id dari JWT claims yang sudah di-set oleh middleware autentikasi Anda
-	// Ini adalah contoh, cara Anda mendapatkan claim bisa berbeda tergantung implementasi middleware Anda
-	employeeIDInterface, exists := c.Get("admin_employee_id") // Ganti "employee_id_from_token" dengan nama key yang benar
+	employeeIDInterface, exists := c.Get("admin_employee_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Employee ID tidak ditemukan di token"})
 		return
@@ -229,13 +236,11 @@ func (h *handler) GetAdminProfile(c *gin.Context) {
 		return
 	}
 
-	// Kembalikan data yang aman
 	c.JSON(http.StatusOK, gin.H{
 		"employeeId": adminProfile.EmployeeID,
 		"fullName":   adminProfile.FullName,
 		"role":       adminProfile.Role,
 		"image":      adminProfile.Image,
-		// Tambahkan field lain dari struct Employee jika perlu
 	})
 }
 
@@ -249,13 +254,11 @@ func (h *handler) ListEmployees(c *gin.Context) {
 	}
 
 	log.Printf("[Handler ListEmployees] Berhasil mengambil %d karyawan.\n", len(employees))
-	// Frontend Anda mengharapkan response.data.employees atau response.data
-	// Memberikan wrapper "employees" lebih konsisten
 	c.JSON(http.StatusOK, gin.H{"employees": employees})
 }
 
 func (h *handler) GetEmployeeByID(c *gin.Context) {
-	employeeID := c.Param("employeeId") // Ambil ID dari path parameter
+	employeeID := c.Param("employeeId")
 	log.Printf("[Handler GetEmployeeByID] Memulai proses untuk Employee ID: %s\n", employeeID)
 
 	if employeeID == "" {
@@ -276,12 +279,11 @@ func (h *handler) GetEmployeeByID(c *gin.Context) {
 	}
 
 	log.Printf("[Handler GetEmployeeByID] Berhasil mengambil detail untuk Employee ID: %s\n", employeeID)
-	// Frontend Anda mengharapkan response.data.employee atau response.data
 	c.JSON(http.StatusOK, gin.H{"employee": employee})
 }
 
 func (h *handler) DeleteEmployee(c *gin.Context) {
-	employeeID := c.Param("employeeId") // Ambil ID dari path parameter
+	employeeID := c.Param("employeeId")
 	log.Printf("[Handler DeleteEmployee] Memulai proses delete untuk Employee ID: %s\n", employeeID)
 
 	if employeeID == "" {
@@ -297,13 +299,11 @@ func (h *handler) DeleteEmployee(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
-		// Error lain dari service (misal, gagal hapus dari salah satu tabel)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus karyawan", "details": err.Error()})
 		return
 	}
 
 	log.Printf("[Handler DeleteEmployee] Berhasil menghapus karyawan dengan ID: %s\n", employeeID)
-	// Mengembalikan status 200 OK dengan pesan, atau bisa juga 204 No Content jika tidak ada body respons
 	c.JSON(http.StatusOK, gin.H{"message": "Karyawan berhasil dihapus"})
 }
 
@@ -317,14 +317,12 @@ func (h *handler) UpdateEmployee(c *gin.Context) {
 		return
 	}
 
-	// Set batas memori untuk parsing multipart form
-	if err := c.Request.ParseMultipartForm(10 << 20); err != nil { // 10 MB
+	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
 		log.Printf("[Handler UpdateEmployee] Error parsing multipart form: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal memproses form data: " + err.Error()})
 		return
 	}
 
-	// 1. Ambil string JSON dari field "jsonData"
 	jsonDataString := c.PostForm("jsonData")
 	if jsonDataString == "" {
 		log.Println("[Handler UpdateEmployee] Error: Field 'jsonData' kosong.")
@@ -332,19 +330,17 @@ func (h *handler) UpdateEmployee(c *gin.Context) {
 		return
 	}
 
-	var inputDTO AddEmployeeInput // DTO yang sama dengan AddEmployee, field EmployeeID tidak akan dipakai dari sini
+	var inputDTO AddEmployeeInput
 	if err := json.Unmarshal([]byte(jsonDataString), &inputDTO); err != nil {
-		log.Printf("[Handler UpdateEmployee] Error unmarshalling jsonData: %v\njsonData: %s\n", err, jsonDataString)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data employee tidak valid: " + err.Error()})
 		return
 	}
 	log.Printf("[Handler UpdateEmployee] Data employee dari jsonData: %+v\n", inputDTO)
 
-	// 2. Proses file gambar baru jika ada
-	var newImagePath *string // Pointer ke string, nil berarti tidak ada file baru / tidak ada instruksi ubah gambar
+	var newImagePath *string
 	fileHeader, errFile := c.FormFile("imageFile")
 
-	if errFile == nil && fileHeader != nil { // Ada file baru yang diupload
+	if errFile == nil && fileHeader != nil {
 		ext := filepath.Ext(fileHeader.Filename)
 		uniqueFilename := uuid.New().String() + ext
 		uploadDir := "./uploads/images/profile/"
@@ -363,18 +359,14 @@ func (h *handler) UpdateEmployee(c *gin.Context) {
 		}
 		log.Printf("[Handler UpdateEmployee] File baru berhasil disimpan ke: %s\n", savePathOnDisk)
 
-		// Path yang akan disimpan ke DB dan dikirim ke service
 		savedPathForService := strings.TrimPrefix(filepath.ToSlash(savePathOnDisk), "./")
-		newImagePath = &savedPathForService // Set pointer ke path baru
+		newImagePath = &savedPathForService
 
 	} else if errFile != nil && errFile != http.ErrMissingFile {
 		log.Printf("[Handler UpdateEmployee] Error mendapatkan file (bukan ErrMissingFile): %v\n", errFile)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Error memproses file gambar: " + errFile.Error()})
 		return
 	}
-	// Jika errFile == http.ErrMissingFile, newImagePath akan tetap nil (tidak ada file baru)
-
-	// 3. Panggil service dengan ID dari path, DTO dari jsonData, dan pointer ke path gambar baru
 	updatedEmployee, serviceErr := h.svc.UpdateEmployee(employeeID, inputDTO, newImagePath)
 	if serviceErr != nil {
 		log.Printf("[Handler UpdateEmployee] Error dari service UpdateEmployee untuk ID %s: %v\n", employeeID, serviceErr)
@@ -382,7 +374,6 @@ func (h *handler) UpdateEmployee(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": serviceErr.Error()})
 			return
 		}
-		// Tangani error duplikat email jika ada dari service
 		if strings.Contains(serviceErr.Error(), "email sudah terdaftar") || strings.Contains(strings.ToLower(serviceErr.Error()), "unique constraint") && strings.Contains(strings.ToLower(serviceErr.Error()), "email") {
 			c.JSON(http.StatusConflict, gin.H{"error": "Email sudah digunakan oleh karyawan lain."})
 			return
@@ -394,12 +385,12 @@ func (h *handler) UpdateEmployee(c *gin.Context) {
 	log.Printf("[Handler UpdateEmployee] Berhasil mengupdate karyawan dengan ID: %s\n", employeeID)
 	c.JSON(http.StatusOK, gin.H{
 		"message":  "Employee berhasil diupdate",
-		"employee": updatedEmployee, // Kirim data employee yang sudah diupdate
+		"employee": updatedEmployee,
 	})
 }
 
 func (h *handler) AddDepartment(c *gin.Context) {
-	var input AddDepartmentInput // Dari model.go (package admin)
+	var input AddDepartmentInput
 
 	// Bind JSON input ke struct AddDepartmentInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -893,4 +884,313 @@ func (h *handler) DeleteProduct(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Produk berhasil dihapus"})
+}
+
+func (h *handler) ListAllOrders(c *gin.Context) {
+	// Ambil status dari query parameter URL (contoh: /admin/orders?status=Completed)
+	status := c.Query("status")
+
+	// Teruskan filter status ke service. Jika tidak ada parameter, nilainya akan string kosong.
+	orders, err := h.svc.ListAllOrders(status)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil daftar pesanan", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"orders": orders})
+}
+
+func (h *handler) GetOrderDetailForAdmin(c *gin.Context) {
+	orderID := c.Param("orderId") // Ambil dari URL
+	orderDetail, err := h.svc.GetOrderDetailForAdmin(orderID)
+	if err != nil {
+		if err.Error() == "pesanan tidak ditemukan" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil detail pesanan", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"order_detail": orderDetail})
+}
+
+func (h *handler) UpdateOrderStatus(c *gin.Context) {
+	orderID := c.Param("orderId")
+	var input AdminUpdateOrderStatusInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Input tidak valid: " + err.Error()})
+		return
+	}
+	updatedOrder, err := h.svc.UpdateOrderStatus(orderID, input)
+	if err != nil {
+		if err.Error() == "pesanan tidak ditemukan" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate status pesanan", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Status pesanan berhasil diupdate", "order": updatedOrder})
+}
+
+func (h *handler) DeleteOrder(c *gin.Context) {
+	orderID := c.Param("orderId")
+	err := h.svc.DeleteOrder(orderID)
+	if err != nil {
+		if err.Error() == "pesanan tidak ditemukan" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus pesanan", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Pesanan berhasil dihapus"})
+}
+
+func (h *handler) ListOrderedCustomers(c *gin.Context) {
+	customers, err := h.svc.ListOrderedCustomers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil daftar customer", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"customers": customers})
+}
+
+func (h *handler) GetCustomerDetailForAdmin(c *gin.Context) {
+	customerID := c.Param("customerId") // Ambil dari URL
+	customerDetail, err := h.svc.GetCustomerDetailForAdmin(customerID)
+	if err != nil {
+		if err.Error() == "customer tidak ditemukan" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil detail customer", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"customer_detail": customerDetail})
+}
+
+func (h *handler) DeleteCustomer(c *gin.Context) {
+	customerID := c.Param("customerId")
+	err := h.svc.DeleteCustomer(customerID)
+	if err != nil {
+		if err.Error() == "customer tidak ditemukan untuk dihapus" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus customer", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Customer berhasil dihapus"})
+}
+
+func (h *handler) AddNewsCategory(c *gin.Context) {
+	var input UpsertNewsCategoryInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Input tidak valid: " + err.Error()})
+		return
+	}
+	category, err := h.svc.AddNewsCategory(input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan kategori baru", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"message": "Kategori berita berhasil ditambahkan", "category": category})
+}
+
+func (h *handler) ListNewsCategories(c *gin.Context) {
+	categories, err := h.svc.ListNewsCategories()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil daftar kategori berita", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"categories": categories})
+}
+
+func (h *handler) GetNewsCategoryByID(c *gin.Context) {
+	categoryID := c.Param("categoryId")
+	category, err := h.svc.GetNewsCategoryByID(categoryID)
+	if err != nil {
+		if err.Error() == "kategori berita tidak ditemukan" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil detail kategori berita", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"category": category})
+}
+
+func (h *handler) UpdateNewsCategory(c *gin.Context) {
+	categoryID := c.Param("categoryId")
+	var input UpsertNewsCategoryInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Input tidak valid: " + err.Error()})
+		return
+	}
+	category, err := h.svc.UpdateNewsCategory(categoryID, input)
+	if err != nil {
+		if err.Error() == "kategori berita tidak ditemukan" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate kategori berita", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Kategori berita berhasil diupdate", "category": category})
+}
+
+func (h *handler) DeleteNewsCategory(c *gin.Context) {
+	categoryID := c.Param("categoryId")
+	err := h.svc.DeleteNewsCategory(categoryID)
+	if err != nil {
+		if err.Error() == "kategori berita tidak ditemukan untuk dihapus" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus kategori berita", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Kategori berita berhasil dihapus"})
+}
+
+func (h *handler) AddNewsPost(c *gin.Context) {
+	// Ambil authorID (employee_id) dari token
+	authorID, exists := c.Get("admin_employee_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: Employee ID tidak ditemukan."})
+		return
+	}
+
+	// Parsing multipart form
+	if err := c.Request.ParseMultipartForm(10 << 20); err != nil { // 10 MB limit
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal memproses form data: " + err.Error()})
+		return
+	}
+
+	// Ambil jsonData
+	jsonDataString := c.PostForm("jsonData")
+	if jsonDataString == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data berita (jsonData) tidak ditemukan."})
+		return
+	}
+	var inputDTO AddNewsPostInput
+	if err := json.Unmarshal([]byte(jsonDataString), &inputDTO); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data berita tidak valid: " + err.Error()})
+		return
+	}
+
+	// Ambil file gambar (opsional)
+	var imageFileHeader *multipart.FileHeader
+	file, handlerFile, errFile := c.Request.FormFile("imageFile")
+	if errFile == nil && file != nil {
+		defer file.Close()
+		imageFileHeader = handlerFile
+	} else if errFile != http.ErrMissingFile {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error memproses file gambar: " + errFile.Error()})
+		return
+	}
+
+	// Panggil service
+	createdPost, err := h.svc.AddNewsPost(authorID.(string), inputDTO, imageFileHeader)
+	if err != nil {
+		// Tangani error dari service
+		if err.Error() == "kategori yang dipilih tidak ditemukan atau tidak aktif" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan postingan berita", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Postingan berita berhasil ditambahkan",
+		"post":    createdPost,
+	})
+}
+
+func (h *handler) ListActiveNewsCategories(c *gin.Context) {
+	categories, err := h.svc.ListActiveNewsCategories()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil daftar kategori berita aktif", "details": err.Error()})
+		return
+	}
+	// Responsnya bisa langsung berupa array atau dibungkus dalam objek JSON,
+	// membungkusnya lebih konsisten.
+	c.JSON(http.StatusOK, gin.H{"categories": categories})
+}
+
+func (h *handler) ListNewsPosts(c *gin.Context) {
+	posts, err := h.svc.ListNewsPosts()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil daftar berita", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"news_posts": posts})
+}
+
+func (h *handler) GetNewsPostByID(c *gin.Context) {
+	newsID := c.Param("newsId")
+	post, err := h.svc.GetNewsPostByID(newsID)
+	if err != nil {
+		if err.Error() == "postingan berita tidak ditemukan" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil detail berita", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"news_post": post})
+}
+
+func (h *handler) UpdateNewsPost(c *gin.Context) {
+	newsID := c.Param("newsId")
+
+	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal memproses form data"})
+		return
+	}
+
+	jsonDataString := c.PostForm("jsonData")
+	var inputDTO UpdateNewsPostInput
+	if err := json.Unmarshal([]byte(jsonDataString), &inputDTO); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data berita tidak valid"})
+		return
+	}
+
+	file, handlerFile, errFile := c.Request.FormFile("imageFile")
+	var imageFileHeader *multipart.FileHeader = nil
+	if errFile == nil && file != nil {
+		defer file.Close()
+		imageFileHeader = handlerFile
+	}
+
+	updatedPost, err := h.svc.UpdateNewsPost(newsID, inputDTO, imageFileHeader)
+	if err != nil {
+		// ... (error handling dari service) ...
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate postingan berita", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Postingan berita berhasil diupdate", "post": updatedPost})
+}
+
+func (h *handler) DeleteNewsPost(c *gin.Context) {
+	newsID := c.Param("newsId")
+	if err := h.svc.DeleteNewsPost(newsID); err != nil {
+		if err.Error() == "postingan berita tidak ditemukan" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus postingan berita", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Postingan berita berhasil dihapus"})
+}
+
+func (h *handler) GetDashboardStatistics(c *gin.Context) {
+	stats, err := h.svc.GetDashboardStatistics()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data statistik", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, stats)
 }

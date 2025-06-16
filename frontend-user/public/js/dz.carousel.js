@@ -1,11 +1,3 @@
-/**
-	Template Name 	 : Motaadmin
-	File Name	     : dz.carousel.js
-	Author			 : DexignLab
-	
-**/
-
-/* JavaScript Document */
 jQuery(window).on('load', function() {
     'use strict';
 	
@@ -27,4 +19,3 @@ jQuery(window).on('load', function() {
 	}
 	
 });
-/* Document .ready END */

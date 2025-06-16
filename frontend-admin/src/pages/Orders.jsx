@@ -1,108 +1,130 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
+import { Alert } from 'react-bootstrap';
 
 const Orders = () => {
-  // Data pesanan ini bisa berasal dari API call nantinya.
-  // Status dan statusClass disesuaikan dengan permintaan baru.
-  const ordersData = [
-    {
-      id: '1007',
-      imgSrc: '/assets/images/products/product-img-1.jpg',
-      orderName: 'FC#1007',
-      customer: 'Jennifer Sullivan',
-      dateTime: '01 May 2023 (10:12 am)',
-      paymentMethod: 'Bank Transfer',
-      status: 'Success', // Tetap Success
-      statusClass: 'bg-light-success text-dark-success', // Class untuk Success
-      amount: '$12.99',
-    },
-    {
-      id: '1006',
-      imgSrc: '/assets/images/products/product-img-2.jpg',
-      orderName: 'FC#1006',
-      customer: 'Willie Hanson',
-      dateTime: '20 April 2023 (9:20 am)',
-      paymentMethod: 'Bank Transfer',
-      status: 'Success', // Tetap Success
-      statusClass: 'bg-light-success text-dark-success', // Class untuk Success
-      amount: '$8.19',
-    },
-    {
-      id: '1005',
-      imgSrc: '/assets/images/products/product-img-3.jpg',
-      orderName: 'FC#1005',
-      customer: 'Dori Stewart',
-      dateTime: '11 March 2023 (7:12 pm)',
-      paymentMethod: 'Bank Transfer',
-      status: 'Processed', // Diubah dari Pending
-      statusClass: 'bg-light-info text-dark-info', // Contoh class untuk Processed (biru muda)
-      amount: '$8.19',
-    },
-    {
-      id: '1004',
-      imgSrc: '/assets/images/products/product-img-4.jpg',
-      orderName: 'FC#1004',
-      customer: 'Ezekiel Rogerson',
-      dateTime: '09 March 2023 (6:23 pm)',
-      paymentMethod: 'Bank Transfer',
-      status: 'Shipped', // Diubah dari Success
-      statusClass: 'bg-light-primary text-dark-primary', // Contoh class untuk Shipped (biru tua/primary)
-      amount: '$23.11',
-    },
-    {
-      id: '1003',
-      imgSrc: '/assets/images/products/product-img-5.jpg',
-      orderName: 'FC#1003',
-      customer: 'Maria Roux',
-      dateTime: '18 Feb 2023', // Disesuaikan
-      paymentMethod: 'Bank Transfer',
-      status: 'Success',
-      statusClass: 'bg-light-success text-dark-success',
-      amount: '$2.00',
-    },
-    {
-      id: '1002',
-      imgSrc: '/assets/images/products/product-img-6.jpg',
-      orderName: 'FC#1002',
-      customer: 'Robert Donald',
-      dateTime: '12 Feb 2023', // Disesuaikan
-      paymentMethod: 'Bank Transfer',
-      status: 'Cancel', // Tetap Cancel
-      statusClass: 'bg-light-danger text-dark-danger', // Class untuk Cancel
-      amount: '$56.00',
-    },
-    {
-      id: '1001',
-      imgSrc: '/assets/images/products/product-img-7.jpg',
-      orderName: 'FC#1001',
-      customer: 'Diann Watson',
-      dateTime: '22 Jan 2023 (1:20 pm)',
-      paymentMethod: 'Bank Transfer',
-      status: 'Success',
-      statusClass: 'bg-light-success text-dark-success',
-      amount: '$23.00',
-    },
-  ];
+  const navigate = useNavigate();
+  const { token, logout } = useAuth();
 
-  // Fungsi untuk menentukan kelas badge berdasarkan status
-  // Anda mungkin sudah memiliki ini di CSS atau bisa didefinisikan di sini
+  const [allOrders, setAllOrders] = useState([]);
+  const [currentDisplayOrders, setCurrentDisplayOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const ordersPerPage = 10;
+
+  const defaultProductImage = '/assets/images/products/default-image.jpg'; 
+  const backendAssetBaseUrl = 'http://localhost:8080';
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return defaultProductImage;
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
+    return `${backendAssetBaseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}`;
+  };
+
+  const formatPrice = (price) => {
+    if (price === null || price === undefined) return 'Rp -';
+    return `Rp${Number(price).toLocaleString('id-ID')}`;
+  };
+
+  const formatOrderDateTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).replace(',', '');
+    } catch (e) { return dateString; }
+  };
+
   const getStatusClass = (status) => {
-    switch (status.toLowerCase()) {
-      case 'success':
-        return 'bg-light-success text-dark-success';
-      case 'processed':
-        return 'bg-light-info text-dark-info'; // Contoh: Biru muda untuk 'Processed'
-      case 'shipped':
-        return 'bg-light-primary text-dark-primary'; // Contoh: Biru untuk 'Shipped'
-      case 'cancel':
-        return 'bg-light-danger text-dark-danger';
-      case 'pending': // Jika masih ada status pending di data lain
+    if (!status) return 'bg-light-secondary text-dark-secondary';
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
+      case 'pending':
+      case 'pending confirmation':
         return 'bg-light-warning text-dark-warning';
+      case 'processed':
+        return 'bg-light-info text-dark-info';
+      case 'shipped':
+        return 'bg-light-primary text-dark-primary';
+      case 'success':
+      case 'completed':
+        return 'bg-light-success text-dark-success';
+      case 'canceled':
+        return 'bg-light-danger text-dark-danger';
       default:
         return 'bg-light-secondary text-dark-secondary';
     }
   };
 
+  const fetchAllOrders = useCallback(async () => {
+    if (!token) { setLoading(false); return; }
+    setLoading(true);
+    setError('');
+    try {
+  
+      const response = await api.get('/admin/orders', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      const allFetchedOrders = response.data.orders || [];
+
+      const activeOrders = allFetchedOrders.filter(
+        order => order.order_status !== 'Completed' && order.order_status !== 'Success'
+      );
+
+      setAllOrders(activeOrders);
+      setCurrentPage(1);
+    } catch (err) {
+      console.error("Error fetching all orders:", err.response || err);
+      setError(err.response?.data?.error || "Failed to load order list.");
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/dashboard/login', { replace: true });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [token, navigate, logout]);
+
+  useEffect(() => {
+    fetchAllOrders();
+  }, [fetchAllOrders]);
+
+  useEffect(() => {
+    const indexOfLastOrder = currentPage * ordersPerPage;
+    const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+    setCurrentDisplayOrders(allOrders.slice(indexOfFirstOrder, indexOfLastOrder));
+  }, [currentPage, allOrders, ordersPerPage]);
+
+  const totalPages = Math.ceil(allOrders.length / ordersPerPage);
+
+  const paginate = (pageNumber) => {
+    if (pageNumber >= 1 && pageNumber <= totalPages && pageNumber !== currentPage) {
+      setCurrentPage(pageNumber);
+    }
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    if (!window.confirm(`Are you sure you want to delete order #${orderId}? This action cannot be undone.`)) return;
+    
+    setError('');
+    try {
+      await api.delete(`/admin/orders/${orderId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      alert(`Order #${orderId} has been deleted.`);
+      fetchAllOrders();
+    } catch (err) {
+      console.error(`Error deleting order ${orderId}:`, err.response || err);
+      setError(err.response?.data?.error || `Failed to delete order #${orderId}.`);
+    }
+  };
 
   return (
     <main className="main-content-wrapper">
@@ -114,7 +136,7 @@ const Orders = () => {
               <nav aria-label="breadcrumb">
                 <ol className="breadcrumb mb-0">
                   <li className="breadcrumb-item"><Link to="/dashboard" className="text-inherit">Dashboard</Link></li>
-                  <li className="breadcrumb-item active" aria-current="page">Order List</li>
+                  <li className="breadcrumb-item active" aria-current="page">Orders</li>
                 </ol>
               </nav>
             </div>
@@ -131,28 +153,23 @@ const Orders = () => {
                     </form>
                   </div>
                   <div className="col-lg-2 col-md-4 col-12">
-                    {/* PERUBAHAN PADA OPSI STATUS FILTER */}
                     <select className="form-select">
-                      <option value="">All Status</option> {/* Pilihan default */}
+                      <option value="">All Status</option>
+                      <option value="Pending">Pending</option>
                       <option value="Processed">Processed</option>
                       <option value="Shipped">Shipped</option>
-                      <option value="Success">Success</option>
-                      <option value="Cancel">Cancel</option>
+                      <option value="Canceled">Canceled</option>
                     </select>
                   </div>
                 </div>
               </div>
               <div className="card-body p-0">
+                {error && <div className="p-6"><Alert variant="danger">{error}</Alert></div>}
                 <div className="table-responsive">
                   <table className="table table-centered table-hover text-nowrap table-borderless mb-0 table-with-checkbox">
                     <thead className="bg-light">
                       <tr>
-                        <th>
-                          <div className="form-check">
-                            <input className="form-check-input" type="checkbox" value="" id="checkAll" />
-                            <label className="form-check-label" htmlFor="checkAll"></label>
-                          </div>
-                        </th>
+                        <th><div className="form-check"><input className="form-check-input" type="checkbox" id="checkAll" /><label className="form-check-label" htmlFor="checkAll"></label></div></th>
                         <th>Image</th>
                         <th>Order ID</th>
                         <th>Customer</th>
@@ -164,61 +181,69 @@ const Orders = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {ordersData.map((order, index) => (
-                        <tr key={order.id}>
-                          <td>
-                            <div className="form-check">
-                              <input className="form-check-input" type="checkbox" value="" id={`order-${order.id}-${index}`} />
-                              <label className="form-check-label" htmlFor={`order-${order.id}-${index}`}></label>
-                            </div>
-                          </td>
-                          <td>
-                            <Link to={`/dashboard/orders/${order.id}`}><img src={order.imgSrc} alt={`Order ${order.orderName}`} className="icon-shape icon-md" /></Link>
-                          </td>
-                          <td><Link to={`/dashboard/orders/${order.id}`} className="text-reset">{order.orderName}</Link></td>
-                          <td>{order.customer}</td>
-                          <td>{order.dateTime}</td>
-                          <td>{order.paymentMethod}</td>
-                          <td>
-                            {/* Menggunakan fungsi getStatusClass untuk konsistensi badge */}
-                            <span className={`badge ${getStatusClass(order.status)}`}>{order.status}</span>
-                          </td>
-                          <td>{order.amount}</td>
-                          <td>
-                            <div className="dropdown">
-                              <Link to="#" className="text-reset" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i className="feather-icon icon-more-vertical fs-5"></i>
-                              </Link>
-                              <ul className="dropdown-menu">
-                                <li>
-                                  <Link className="dropdown-item" to="#">
-                                    <i className="bi bi-trash me-3"></i>Delete
+                      {currentDisplayOrders.length > 0 ? (
+                        currentDisplayOrders.map((order, index) => {
+                          return (
+                            <tr key={order.order_id}>
+                              <td><div className="form-check"><input className="form-check-input" type="checkbox" id={`order-${order.order_id}`} /><label className="form-check-label" htmlFor={`order-${order.order_id}`}></label></div></td>
+                              <td><Link to={`/dashboard/orders/${order.order_id}`}><img src={getImageUrl(order.first_item_image)} alt={`Order ${order.order_id}`} className="icon-shape icon-md" /></Link></td>
+                              <td><Link to={`/dashboard/orders/${order.order_id}`} className="text-reset">{order.order_id}</Link></td>
+                              <td>{order.customer_fullname}</td>
+                              <td>{formatOrderDateTime(order.order_date_time)}</td>
+                              <td>{order.payment_method}</td>
+                              <td><span className={`badge ${getStatusClass(order.order_status)}`}>{order.order_status}</span></td>
+                              <td>{formatPrice(order.grand_total)}</td>
+                              <td>
+                                <div className="dropdown">
+                                  <Link to="#" className="text-reset" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i className="feather-icon icon-more-vertical fs-5"></i>
                                   </Link>
-                                </li>
-                                <li>
-                                  <Link className="dropdown-item" to={`/dashboard/orders/${order.id}`}>
-                                    <i className="bi bi-pencil-square me-3"></i>Update {/* Teks diubah dari View menjadi Update */}
-                                  </Link>
-                                </li>
-                              </ul>
-                            </div>
-                          </td>
+                                  <ul className="dropdown-menu">
+                                    <li>
+                                      <button className="dropdown-item" onClick={() => handleDeleteOrder(order.order_id)}>
+                                        <i className="bi bi-trash me-3"></i>Delete
+                                      </button>
+                                    </li>
+                                    <li>
+                                      <Link className="dropdown-item" to={`/dashboard/orders/${order.order_id}`}>
+                                        <i className="bi bi-pencil-square me-3"></i>Update
+                                      </Link>
+                                    </li>
+                                  </ul>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan="9" className="text-center p-4">No orders found.</td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
-              <div className="border-top d-md-flex justify-content-between align-items-center p-6">
-                <span>Showing 1 to {ordersData.length} of {ordersData.length} entries</span>
-                <nav className="mt-2 mt-md-0">
-                  <ul className="pagination mb-0">
-                    <li className="page-item disabled"><Link className="page-link" to="#!">Previous</Link></li>
-                    <li className="page-item"><Link className="page-link active" to="#!">1</Link></li>
-                    <li className="page-item"><Link className="page-link" to="#!">Next</Link></li>
-                  </ul>
-                </nav>
-              </div>
+              {totalPages > 1 && (
+                <div className="border-top d-md-flex justify-content-between align-items-center p-6">
+                  <span>Showing {allOrders.length > 0 ? ((currentPage - 1) * ordersPerPage) + 1 : 0} to {Math.min(currentPage * ordersPerPage, allOrders.length)} of {allOrders.length} entries</span>
+                  <nav className="mt-2 mt-md-0">
+                    <ul className="pagination mb-0">
+                      <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                        <button className="page-link" onClick={() => paginate(currentPage - 1)}>&laquo;</button>
+                      </li>
+                      {[...Array(totalPages).keys()].map(number => (
+                        <li key={`page-${number + 1}`} className={`page-item ${currentPage === number + 1 ? 'active' : ''}`}>
+                          <button onClick={() => paginate(number + 1)} className="page-link">{number + 1}</button>
+                        </li>
+                      ))}
+                      <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                        <button className="page-link" onClick={() => paginate(currentPage + 1)}>&raquo;</button>
+                      </li>
+                    </ul>
+                  </nav>
+                </div>
+              )}
             </div>
           </div>
         </div>

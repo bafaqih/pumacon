@@ -19,7 +19,7 @@ const UserDashboardLayout = () => {
 
   return (
     <>
-      <Navbar /> {/* Tambahkan Navbar di sini */}
+      <Navbar />
       <div style={headerBoxStyle}></div>
 
       <section style={contentSectionStyle}>
@@ -31,7 +31,7 @@ const UserDashboardLayout = () => {
         </div>
       </section>
 
-      <Footer /> {/* Tambahkan Footer di sini */}
+      <Footer />
     </>
   );
 };

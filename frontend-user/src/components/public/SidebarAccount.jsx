@@ -99,22 +99,20 @@ const SidebarAccount = () => {
     { to: "/contact", Icon: HelpCircle, label: "Help Center" },
   ];
 
-  // --- PERUBAHAN DI SINI UNTUK MENGAMBIL DATA DARI currentUser.detail ---
   const firstName = currentUser?.detail?.first_name || '';
   const lastName = currentUser?.detail?.last_name || '';
   const fullName = `${firstName} ${lastName}`.trim();
 
 
-  const userImage = currentUser?.detail?.image || '/assets/images/avatar/avatar-1.jpg'; // Path default jika tidak ada gambar atau path salah
-  // --- AKHIR PERUBAHAN ---
+  const userImage = currentUser?.detail?.image || '/assets/images/avatar/avatar-1.jpg'; 
 
   return (
     <div className="col-lg-3 col-md-4" style={sidebarStyle}>
       <div className="mb-4 text-center text-md-start">
         <div style={userInfoWrapperStyle}>
           <div className="overflow-hidden">
-            <h3 className="mb-0 fs-5">{fullName || 'Guest'}</h3> {/* Gunakan nama lengkap */}
-            <p className="mb-0 small text-truncate">{currentUser?.email || 'N/A'}</p> {/* Email langsung dari currentUser (tidak nested) */}
+            <h3 className="mb-0 fs-5">{fullName || 'Guest'}</h3> 
+            <p className="mb-0 small text-truncate">{currentUser?.email || 'N/A'}</p> 
           </div>
         </div>
       </div>

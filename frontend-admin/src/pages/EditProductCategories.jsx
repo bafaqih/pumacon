@@ -1,29 +1,27 @@
-// src/pages/EditProductCategories.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import ReactQuill from 'react-quill-new';
-import { useAuth } from '../contexts/AuthContext'; // Sesuaikan path jika perlu
-import api from '../services/api'; // Sesuaikan path jika perlu
+import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
 
 const EditProductCategories = () => {
-  const { categoryId: paramCategoryId } = useParams(); // Ambil categoryId dari URL
+  const { categoryId: paramCategoryId } = useParams();
   const navigate = useNavigate();
   const { token, logout } = useAuth();
 
   // State untuk loading dan pesan
-  const [loading, setLoading] = useState(false);         // Untuk proses submit
-  const [loadingData, setLoadingData] = useState(true); // Untuk fetch data awal
+  const [loading, setLoading] = useState(false);       
+  const [loadingData, setLoadingData] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   // State untuk form fields
-  const [categoryIdDisplay, setCategoryIdDisplay] = useState(''); // Untuk menampilkan Category ID (read-only)
+  const [categoryIdDisplay, setCategoryIdDisplay] = useState('');
   const [categoryName, setCategoryName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('published'); 
   const [validated, setValidated] = useState(false);
 
-  // useEffect untuk mengambil data kategori yang akan diedit
   useEffect(() => {
     const fetchCategoryData = async () => {
       if (!paramCategoryId || !token) {
@@ -35,17 +33,15 @@ const EditProductCategories = () => {
       setLoadingData(true);
       setErrorMessage('');
       try {
-        // Panggil API untuk mendapatkan detail kategori produk
         const response = await api.get(`/admin/product-categories/${paramCategoryId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        // Asumsi backend mengembalikan { category: {...} } atau langsung objek category
         const cat = response.data.category || response.data; 
         if (cat) {
-          setCategoryIdDisplay(cat.CategoryID); // CategoryID dari data backend
+          setCategoryIdDisplay(cat.CategoryID); 
           setCategoryName(cat.CategoryName || '');
           setDescription(cat.Description || '');
-          setStatus(cat.Status || 'published'); // Sesuaikan dengan nilai status dari backend
+          setStatus(cat.Status || 'published');
         } else {
           setErrorMessage(`Kategori produk dengan ID ${paramCategoryId} tidak ditemukan.`);
         }
@@ -89,16 +85,13 @@ const EditProductCategories = () => {
         return;
     }
 
-    // Data yang akan dikirim ke backend untuk diupdate
     const categoryDataToUpdate = {
-      // CategoryID tidak dikirim di body JSON, karena ada di URL dan tidak boleh diubah
       category_name: categoryName,
       description: description,
-      status: status, // "published" atau "unpublished"
+      status: status,
     };
 
     try {
-      // Panggil API PUT untuk update kategori produk
       const response = await api.put(`/admin/product-categories/${paramCategoryId}`, categoryDataToUpdate, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -108,7 +101,6 @@ const EditProductCategories = () => {
 
       setSuccessMessage(response.data.message || 'Kategori produk berhasil diupdate!');
       setValidated(false);
-      // Opsional: Arahkan kembali ke daftar kategori setelah beberapa detik
       setTimeout(() => {
         navigate('/dashboard/products/categories');
       }, 2000);
@@ -180,7 +172,6 @@ const EditProductCategories = () => {
                 <div className="card-body p-6">
                   <h4 className="mb-4 h5 mt-0">Category Information</h4>
                   <div className="row">
-                    {/* Category ID (Read-Only) */}
                     <div className="mb-3 col-lg-6">
                       <label className="form-label" htmlFor="categoryIdDisplayInput">Category ID</label>
                       <input 
@@ -193,9 +184,7 @@ const EditProductCategories = () => {
                         style={{ backgroundColor: '#e9ecef' }}
                       />
                     </div>
-
-                    {/* Category Name */}
-                    <div className="mb-3 col-lg-6"> {/* Dibuat sejajar dengan ID */}
+                    <div className="mb-3 col-lg-6">
                       <label className="form-label" htmlFor="categoryNameInput">Category Name <span className="text-danger">*</span></label>
                       <input 
                         type="text" 
@@ -208,9 +197,7 @@ const EditProductCategories = () => {
                         disabled={loading || loadingData}
                       />
                       <div className="invalid-feedback">Please enter category name.</div>
-                    </div>
-                    
-                    {/* Descriptions */}
+                    </div>                 
                     <div className="mb-3 col-lg-12" style={{minHeight: '250px', marginBottom: '40px'}}>
                       <label className="form-label">Description</label>
                         <ReactQuill
@@ -222,8 +209,6 @@ const EditProductCategories = () => {
                         readOnly={loading || loadingData}
                       />
                     </div>
-
-                    {/* Status */}
                     <div className="mb-3 col-lg-12 mt-3">
                       <label className="form-label d-block" id="categoryStatusLabelEdit">Status <span className="text-danger">*</span></label>
                       <div className="form-check form-check-inline">
@@ -253,8 +238,6 @@ const EditProductCategories = () => {
                         <label className="form-check-label" htmlFor="statusUnpublishedEditCat">Unpublished</label>
                       </div>
                     </div>
-                    
-                    {/* Tombol Aksi */}
                     <div className="col-lg-12 mt-4">
                       <button type="submit" className="btn btn-primary" disabled={loading || loadingData}>
                         {loading ? 'Saving...' : 'Save Changes'}

@@ -1,347 +1,281 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import React, { useEffect } from "react";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useCustomerAuth } from '../../contexts/CustomerAuthContext';
+import apiClient from '../../services/apiClient';
+import { Carousel, Alert, Button, Form, Card, Row, Col } from 'react-bootstrap';
 
 const ProductDetail = () => {
-  const location = useLocation();
+  const { productSKU: productSKUFromParam, logout  } = useParams();
   const navigate = useNavigate();
-  useEffect(() => {
-    if (window.WOW) {
-      new window.WOW().init();
-    }
-  }, []);
+  const location = useLocation();
+  const { token, isLoggedIn, triggerLoginModal } = useCustomerAuth();
 
-    const handleNavClick = (e, path) => {
-    if (location.pathname === path) {
-      e.preventDefault();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      navigate(path);
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [quantity, setQuantity] = useState(1);
+
+  const defaultProductImage = '/images/product/default-image.jpg';
+  const backendAssetBaseUrl = 'http://localhost:8080';
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return defaultProductImage;
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
+    const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
+    return `${backendAssetBaseUrl}/${cleanPath}`;
+  };
+
+  const formatPrice = (price) => {
+    if (price === null || price === undefined) return 'Rp -';
+    return `Rp${Number(price).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+    } catch (e) { return dateString; }
+  };
+  
+  const getProductStatusClass = (status) => {
+    if (!status) return 'bg-light-secondary text-dark-secondary';
+    if (status.toLowerCase() === 'published') {
+      return 'bg-light-success text-dark-success';
+    } else if (status.toLowerCase() === 'unpublished') {
+      return 'bg-light-danger text-dark-danger';
+    }
+    return 'bg-light-info text-dark-info';
+  };
+
+
+  useEffect(() => {
+    const fetchProductDetail = async () => {
+      if (!productSKUFromParam) {
+        setError("Product SKU not provided in URL.");
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError('');
+      try {
+        const response = await apiClient.get(`/products/${productSKUFromParam}`);
+        console.log("Product Detail API Response:", response.data);
+        const productData = response.data.product; 
+        if (productData) {
+            setProduct(productData);
+        } else {
+            setError(`Product with SKU ${productSKUFromParam} not found.`);
+            setProduct(null);
+        }
+      } catch (err) {
+        console.error(`Error fetching product detail for SKU ${productSKUFromParam}:`, err.response || err);
+        setError(err.response?.data?.error || `Failed to load product details for SKU ${productSKUFromParam}.`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProductDetail();
+
+    if (window.WOW) {
+      new window.WOW({ live: false }).init();
+    }
+  }, [productSKUFromParam]);
+
+  const handleQuantityChange = (e) => {
+    let newQuantity = parseInt(e.target.value, 10);
+    if (isNaN(newQuantity) || newQuantity < 1) {
+      newQuantity = 1;
+    } else if (product && product.stock !== undefined && newQuantity > product.stock) {
+      newQuantity = product.stock;
+    }
+    setQuantity(newQuantity);
+  };
+
+  const incrementQuantity = () => {
+    setQuantity(prevQuantity => {
+      const newQuantity = prevQuantity + 1;
+      return product && product.stock !== undefined && newQuantity > product.stock ? product.stock : newQuantity;
+    });
+  };
+
+  const decrementQuantity = () => {
+    setQuantity(prevQuantity => (prevQuantity > 1 ? prevQuantity - 1 : 1));
+  };
+
+  const handleAddToCart = async () => { 
+    if (!product || !product.product_sku) { 
+        console.error("Product data or SKU is missing for add to cart.");
+        return;
+    }
+
+    console.log(`Attempting to add to cart: ${product.title}, SKU: ${product.product_sku}, Quantity: ${quantity}`); 
+    if (!isLoggedIn) {
+      if (typeof triggerLoginModal === 'function') {
+        triggerLoginModal(location); 
+      } else {
+        navigate('/login');
+      }
+      return;
+    }
+
+  
+    const payload = {
+      product_sku: product.product_sku, 
+      quantity: quantity, 
+    };
+
+    try {
+    
+
+      const response = await apiClient.post('/user/cart', payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log('Add to cart response:', response.data);
+      alert(response.data.message || `${product.title} added to cart!`); 
+
+
+    } catch (err) {
+      console.error("Error adding to cart:", err.response || err);
+      const errorMessage = err.response?.data?.error || "Failed to add product to cart. Please try again.";
+      alert(errorMessage); 
+       if (err.response && err.response.status === 401) {
+        logout(); navigate('/login', {replace: true});
+      }
+    } finally {
     }
   };
 
-	const isHome = location.pathname === "/";
+  
+  if (error) return <div className="container p-5 text-center"><Alert variant="danger">{error}</Alert><Link to="/products" className="btn btn-primary mt-3">Back to Products</Link></div>;
+  if (!product) return <div className="container p-5 text-center"><h2>Product Not Found</h2><Link to="/products" className="btn btn-primary mt-3">Back to Products</Link></div>;
+
+  const mainImage = (Array.isArray(product.images) && product.images.length > 0) ? getImageUrl(product.images[0]) : defaultProductImage;
+  const galleryImages = Array.isArray(product.images) ? product.images : [];
 
   return (
-	<div style={{ paddingTop: isHome ? '0px' : '100px' }}>
-			<div className="dz-bnr-inr dz-bnr-inr-sm text-center overlay-primary-dark" style={{ backgroundImage: "url('public/images/banner/bnr1.jpg')"}}>
-				<div className="container">
-					<div className="dz-bnr-inr-entry">
-						<h1>Shop Detail</h1>
-						<nav aria-label="breadcrumb" className="breadcrumb-row m-t15">
-							<ul className="breadcrumb">
-								<li className="breadcrumb-item"><a href="index.html">Home</a></li>
-								<li className="breadcrumb-item active" aria-current="page">Shop Detail</li>
-							</ul>
-						</nav>
-					</div>
-				</div>
+	<div style={{ paddingTop: location.pathname === "/" ? '0px' : '100px' }}>
+		  <div className="dz-bnr-inr dz-bnr-inr-sm text-center overlay-primary-dark" style={{ backgroundImage: "url('/images/banner/bnr1.jpg')" }}>
+			<div className="container">
+			  <div className="dz-bnr-inr-entry">
+				<h1>Product Catalog</h1>
+				<nav aria-label="breadcrumb" className="breadcrumb-row m-t15">
+				  <ul className="breadcrumb">
+					<li className="breadcrumb-item"><Link to="/">Home</Link></li>
+					<li className="breadcrumb-item"><Link to="/products">Products</Link></li>
+                	<li className="breadcrumb-item active" aria-current="page">{product.title || 'Product Detail'}</li>
+				  </ul>
+				</nav>
+			  </div>
 			</div>
+		  </div>
 	
 		<section className="content-inner-1">
-			<div className="container">
-				<div className="row shop-grid-row style-4 m-b60">
-					<div className="col">
-						<div className="dz-box row">
-							<div className="col-lg-5">
-								<div className="dz-media">
-									<img src="public/images/about/pic6.jpg" alt="image"/>
-								</div>
+        <div className="container">
+          <div className="row shop-grid-row style-4 m-b60">
+            <div className="col">
+              <div className="dz-box row">
+                <div className="col-lg-5">
+                  <div className="dz-media mb-4">
+                    <img 
+                        src={mainImage} 
+                        alt={product.title || "Product Image"}
+                        onError={(e) => { e.target.onerror = null; e.target.src=defaultProductImage; }}
+                        style={{width: '100%', height: 'auto', maxHeight: '500px', objectFit: 'contain', border: '1px solid #eee'}}
+                    />
+                  </div>
+                  {galleryImages.length > 1 && (
+                    <div className="d-flex flex-wrap gap-2">
+                        {galleryImages.map((imgUrl, index) => (
+                            <img 
+                                key={index}
+                                src={getImageUrl(imgUrl)}
+                                alt={`${product.title} thumbnail ${index + 1}`}
+                                style={{width: '80px', height: '80px', objectFit: 'cover', cursor: 'pointer', border: '1px solid #ddd'}}                                
+                            />
+                        ))}
+                    </div>
+                  )}
+                </div>
+                <div className="col-lg-7">
+                  <div className="dz-content">
+                    <div className="dz-header">
+                      <h3 className="title">{product.title || "Product Title"}</h3>
+                    </div>
+                    <div className="dz-body">
+                      <div className="mb-3 product-full-description" style={{ whiteSpace: 'pre-line' }}>
+                        {product.descriptions ? 
+                            ( <div className="description-content" dangerouslySetInnerHTML={{ __html: product.descriptions }} /> ) 
+                            : 'No description available.'
+                        }
+                      </div>
+                      <div className="shop-footer">
+                        <div className="price mb-3">
+                          <h5 className="text-primary">{formatPrice(product.regular_price)}</h5>
+                        </div>
+                        <div className="product-num d-flex align-items-center">
+                          <div className="quantity me-3">
+							<input 
+								id="productQuantity" 
+								type="number"
+								className="form-control quantity-input text-center"
+								style={{ width: '90px', height:'50px'}}
+								value={quantity} 
+								name="productQuantity"
+								onChange={handleQuantityChange}
+								min="1"
+								max={product.stock > 0 ? product.stock : 1}
+								disabled={product.stock === 0}
+							/>
 							</div>
-							<div className="col-lg-7">
-								<div className="dz-content">
-									<div className="dz-header">
-										<h3 className="title">Think and Grow Rich</h3>
-										<div className="shop-item-rating">
-											<div className="d-lg-flex d-sm-inline-flex d-flex align-items-center">
-												<ul className="dz-rating">
-													<li><i className="fa-solid fa-star text-yellow"></i></li>	
-													<li><i className="fa-solid fa-star text-yellow"></i></li>	
-													<li><i className="fa-solid fa-star text-yellow"></i></li>	
-													<li><i className="fa-solid fa-star text-yellow"></i></li>	
-													<li><i className="fa-solid fa-star text-yellow"></i></li>	
-
-												</ul>
-												<h6 className="m-b0">4.0</h6>
-											</div>
-											<div className="social-area">
-												<ul className="dz-social-icon style-1">
-													<li><a className="btn-facebook" href="https://www.faceshop.com/dexignzone" target="_blank"><i className="fa-brands fa-facebook-f"></i></a></li>
-													<li><a className="btn-twitter" href="https://twitter.com/dexignzones" target="_blank"><i className="fa-brands fa-twitter"></i></a></li>
-													<li><a className="btn-whatsapp" href="https://www.whatsapp.com/" target="_blank"><i className="fa-brands fa-whatsapp"></i></a></li>
-													<li><a className="btn-envelope" href="https://www.google.com/intl/en-GB/gmail/about/" target="_blank"><i className="fa-solid fa-envelope"></i></a></li>
-												</ul>
-											</div>
-										</div>
-									</div>
-									<div className="dz-body">
-										<div className="shop-detail">
-											<ul className="shop-info">
-												<li>
-													<div className="writer-info">
-														<img src="public/images/blog/small/pic3.jpg" alt=""/>
-														<div>
-															<span>Writen by</span>Kevin Smiley
-														</div>
-													</div>
-												</li>
-												<li><span>Publisher</span>Printarea Studios</li>
-												<li><span>Year</span>2022</li>
-											</ul>
-										</div>
-										<p className="text-1">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit.</p>
-										<p className="text-2">Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem</p>
-										<div className="shop-footer">
-											<div className="price">
-												<h5>$54.78</h5>
-												<p className="p-lr10">$70.00</p>
-											</div>
-											<div className="product-num">
-												<div className="quantity btn-quantity style-1 me-3">
-													<input id="demo_vertical2" type="text" value="1" name="demo_vertical2"/>
-												</div>
-												<a href="shop-cart.html" className="btn btn-gray"><i className="fa-solid fa-cart-shopping"></i> <span>Add to cart</span></a>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-				
-				<div className="row">
-					<div className="col-xl-8">
-						<div className="product-description tabs-site-button">
-                            <ul className="nav nav-tabs">
-                                <li><a data-bs-toggle="tab" href="shop-detail.html#graphic-design-1" className="active">Details Product</a></li>
-                                <li><a data-bs-toggle="tab" href="shop-detail.html#developement-1">Customer Reviews</a></li>
-                            </ul>
-							<div className="tab-content">
-								<div id="graphic-design-1" className="tab-pane show active">
-                                    <table className="table border shop-overview">
-                                        <tr>
-                                            <th>Shop Title</th>
-                                            <td>Think and Grow Rich</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Author</th>
-                                            <td>Napoleon Rich</td>
-                                        </tr>
-                                        <tr>
-                                            <th>ISBN</th>
-                                            <td>123456789 (ISBN13: 123456789)</td>
-                                        </tr>
-										<tr>
-                                            <th>Ediiton Language</th>
-                                            <td>English</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Shop Format</th>
-                                            <td>Paperback, 450 Pages</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Date Published</th>
-                                            <td>August 10th 2019</td>
-                                        </tr>
-										<tr>
-                                            <th>Publisher</th>
-                                            <td>Wepress Inc.</td>
-                                        </tr>
-										<tr>
-                                            <th>Pages</th>
-                                            <td>520</td>
-                                        </tr>
-										<tr>
-                                            <th>Lesson</th>
-                                            <td>7</td>
-                                        </tr>
-										<tr>
-                                            <th>Topic</th>
-                                            <td>360</td>
-                                        </tr>
-                                        <tr className="tags">
-                                            <th>Tags</th>
-                                            <td>
-												<a href="javascript:void(0);" className="badge">Drama</a>
-												<a href="javascript:void(0);" className="badge">Advanture</a>
-												<a href="javascript:void(0);" className="badge">Survival</a>
-												<a href="javascript:void(0);" className="badge">Biography</a>
-												<a href="javascript:void(0);" className="badge">Trending2022</a>
-												<a href="javascript:void(0);" className="badge">Bestseller</a>
-											</td>
-                                        </tr>
-                                    </table>
-                                </div>
-								<div id="developement-1" className="tab-pane">
-                                    <div className="clear" id="comment-list">
-										<div className="post-comments comments-area style-1 clearfix">
-											<h4 className="comments-title">4 COMMENTS</h4>
-											<div id="comment">
-												<ol className="comment-list">
-													<li className="comment even thread-even depth-1 comment" id="comment-2">
-														<div className="comment-body">
-															<div className="comment-author vcard">
-																<img src="public/images/avatar/avatar1.jpg" alt="" className="avatar"/>
-																<cite className="fn">Michel Poe</cite>
-																<div className="comment-meta">
-																	<a href="javascript:void(0);">December 28, 2022 at 6:14 am</a>
-																</div>
-															</div>
-															<div className="comment-content dlab-page-text">
-																<p>Donec suscipit porta lorem eget condimentum. Morbi vitae mauris in leo venenatis varius. Aliquam nunc enim, egestas ac dui in, aliquam vulputate erat.</p>
-															</div>
-															<div className="reply">
-																<a rel="nofollow" className="comment-reply-link" href="javascript:void(0);"><i className="fa fa-reply"></i> Reply</a>
-															</div>
-														</div>
-														<ol className="children">
-															<li className="comment byuser comment-author-w3itexpertsuser bypostauthor odd alt depth-2 comment" id="comment-3">
-																 <div className="comment-body" id="div-comment-3">
-																	<div className="comment-author vcard">
-																	   <img src="public/images/avatar/avatar2.jpg" alt="" className="avatar"/>
-																	   <cite className="fn">Celesto Anderson</cite>
-																	   <div className="comment-meta">
-																		  <a href="javascript:void(0);">December 28, 2022 at 6:14 am</a>
-																	   </div>
-																	</div>
-																	<div className="comment-content dlab-page-text">
-																	   <p>Donec suscipit porta lorem eget condimentum. Morbi vitae mauris in leo venenatis varius. Aliquam nunc enim, egestas ac dui in, aliquam vulputate erat.</p>
-																	</div>
-																	<div className="reply">
-																	   <a className="comment-reply-link" href="javascript:void(0);"><i className="fa fa-reply"></i> Reply</a>
-																	</div>
-																 </div>
-															  </li>
-														   </ol>
-														</li>
-														<li className="comment even thread-odd thread-alt depth-1 comment" id="comment-4">
-														   <div className="comment-body" id="div-comment-4">
-															  <div className="comment-author vcard">
-																<img src="public/images/avatar/avatar3.jpg" alt="" className="avatar"/>
-																 <cite className="fn">Ryan</cite>
-																 <div className="comment-meta">
-																	<a href="javascript:void(0);">December 28, 2022 at 6:14 am</a>
-																 </div>
-															  </div>
-															  <div className="comment-content dlab-page-text">
-																 <p>Donec suscipit porta lorem eget condimentum. Morbi vitae mauris in leo venenatis varius. Aliquam nunc enim, egestas ac dui in, aliquam vulputate erat.</p>
-															  </div>
-															  <div className="reply">
-																 <a className="comment-reply-link" href="javascript:void(0);"><i className="fa fa-reply"></i> Reply</a>
-															  </div>
-														   </div>
-														</li>
-														<li className="comment odd alt thread-even depth-1 comment" id="comment-5">
-														   <div className="comment-body" id="div-comment-5">
-															  <div className="comment-author vcard">
-																<img src="public/images/avatar/avatar1.jpg" alt="" className="avatar"/>
-																 <cite className="fn">Stuart</cite>
-																 <div className="comment-meta">
-																	<a href="javascript:void(0);">December 28, 2022 at 6:14 am</a>
-																 </div>
-															  </div>
-															  <div className="comment-content dlab-page-text">
-																 <p>Donec suscipit porta lorem eget condimentum. Morbi vitae mauris in leo venenatis varius. Aliquam nunc enim, egestas ac dui in, aliquam vulputate erat.</p>
-															  </div>
-															  <div className="reply">
-																 <a rel="nofollow" className="comment-reply-link" href="javascript:void(0);"><i className="fa fa-reply"></i> Reply</a>
-															  </div>
-														   </div>
-														</li>
-													 </ol>
-												  </div>
-											  <div className="default-form comment-respond style-1" id="respond">
-												 <h4 className="comment-reply-title" id="reply-title">LEAVE A REPLY <small> <a rel="nofollow" id="cancel-comment-reply-link" href="javascript:void(0)" style="display:none;">Cancel reply</a> </small></h4>
-												 <div className="clearfix">
-													<form method="post" id="comments_form" className="comment-form" novalidate>
-													   <p className="comment-form-author"><input id="name" placeholder="Author" name="author" type="text" value=""/></p>
-													   <p className="comment-form-email"><input id="email" required="required" placeholder="Email" name="email" type="email" value=""/></p>
-													   <p className="comment-form-comment"><textarea id="comments" placeholder="Type Comment Here" className="form-control4" name="comment" cols="45" rows="3" required="required"></textarea></p>
-													   <p className="col-md-12 col-sm-12 col-xs-12 form-submit">
-														  <button id="submit" type="submit" className="submit btn btn-primary filled">
-														  Submit Now <i className="fa fa-angle-right m-l10"></i>
-														  </button>
-													   </p>
-													</form>
-												 </div>
-											  </div>
-									   </div>
-									</div>
-									
-								</div>
-							</div>
-						</div>
-					</div>
-					<div className="col-xl-4 mt-2 mt-lg-0">
-						<div className="widget">
-							<h4 className="widget-title">Related Product</h4>
-							<div className="row">
-								<div className="col-xl-12 col-lg-6">
-									<div className="dz-shop-card style-5">
-										<div className="dz-media">
-											<img src="public/images/product/pic7.png" alt="image"/>
-										</div>
-										<div className="dz-content">
-											<h5 className="subtitle"><a href="shop-detail.html">T-Shirt</a></h5>
-											<ul className="dz-tags">
-												<li>THRILLE	,</li>
-												<li>DRAMA,</li>
-												<li>HORROR</li>
-											</ul>
-											<div className="price">
-												<span className="price-num">$45.4</span>
-												<del>$98.4</del>
-											</div>
-											<a href="shop-cart.html" className="btn btn-gray btn-sm"><i className="fa-solid fa-cart-shopping"></i>Add to cart</a>
-										</div>
-									</div>
-								</div>
-								<div className="col-xl-12 col-lg-6">
-									<div className="dz-shop-card style-5">
-										<div className="dz-media">
-											<img src="public/images/product/pic8.png" alt="image"/>
-										</div>
-										<div className="dz-content">
-											<h5 className="subtitle"><a href="shop-detail.html">Apple IPhone 14</a></h5>
-											<ul className="dz-tags">
-												<li>THRILLE,</li>
-												<li>DRAMA,</li>
-												<li>HORROR</li>
-											</ul>
-											<div className="price">
-												<span className="price-num">$45.4</span>
-												<del>$98.4</del>
-											</div>
-											<a href="shop-cart.html" className="btn btn-gray btn-sm "><i className="fa-solid fa-cart-shopping"></i>Add to cart</a>
-										</div>
-									</div>
-								</div>
-								<div className="col-xl-12 col-lg-6">
-									<div className="dz-shop-card style-5 mb-0">
-										<div className="dz-media">
-											<img src="public/images/product/pic10.png" alt="image"/>
-										</div>
-										<div className="dz-content">
-											<h5 className="subtitle"><a href="shop-detail.html">Asus Tuf Gaming</a></h5>
-											<ul className="dz-tags">
-												<li>THRILLE,</li>
-												<li>DRAMA,</li>
-												<li>HORROR</li>
-											</ul>
-											<div className="price">
-												<span className="price-num">$45.4</span>
-												<del>$98.4</del>
-											</div>
-											<a href="shop-cart.html" className="btn btn-gray btn-sm "><i className="fa-solid fa-cart-shopping"></i> Add to cart</a>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-		</section>
+                          <Button 
+                            variant="primary" 
+                            className="btnhover rounded-0" 
+                            onClick={handleAddToCart}
+                            disabled={!product || product.stock === 0}
+                          >
+                            <i className="fa-solid fa-cart-shopping me-2"></i> 
+                            <span>{(!product || product.stock === 0) ? 'Out of Stock' : 'Add to Cart'}</span>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="row mt-5"> 
+            <div className="col-xl-8"> 
+              <div className="product-description tabs-site-button">
+                <ul className="nav nav-tabs">
+                  <li><a data-bs-toggle="tab" href="#product-details-tab" className="active">Product Details</a></li>
+                  
+                </ul>
+                <div className="tab-content pt-1"> 
+                  <div id="product-details-tab" className="tab-pane show active">
+                    <table className="table border shop-overview">
+                      <tbody>
+                        {product.stock !== undefined && ( 
+                            <tr><th>Stock</th><td>{product.stock > 0 ? `${product.stock} In Stock` : 'Out of Stock'}</td></tr>
+                        )}
+                        {product.brand && <tr><th>Brand</th><td>{product.brand}</td></tr>}
+                        <tr><th>Category</th><td>{product.category_name || '-'}</td></tr>
+                        {product.power_source && <tr><th>Power Source</th><td>{product.power_source}</td></tr>}
+                        {product.warranty_period && <tr><th>Warranty Period</th><td>{product.warranty_period}</td></tr>}
+                        {product.production_date && <tr><th>Production Date</th><td>{formatDate(product.production_date)}</td></tr>}
+                        
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 		
 		<section className="content-inner-2 border-top">
 			<div className="container">

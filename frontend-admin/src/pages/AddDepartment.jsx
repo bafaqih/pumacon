@@ -1,26 +1,22 @@
-// src/pages/AddDepartment.jsx
-import React, { useState } from 'react'; // useEffect tidak digunakan, bisa dihapus
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import ReactQuill from 'react-quill-new'; // Jika 'react-quill-new' adalah fork, pastikan importnya benar
-import { useAuth } from '../contexts/AuthContext'; // Sesuaikan path jika perlu
-import api from '../services/api'; // Sesuaikan path jika perlu
+import ReactQuill from 'react-quill-new';
+import { useAuth } from '../contexts/AuthContext'; 
+import api from '../services/api';
 
 const AddDepartment = () => {
   const navigate = useNavigate();
-  const { token, logout } = useAuth(); // Ambil token untuk API call
+  const { token, logout } = useAuth();
 
-  // State untuk form fields department
   const [departmentName, setDepartmentName] = useState('');
-  // departmentId akan digenerate backend, jadi tidak perlu state di sini untuk input
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState('active'); // Default 'active', opsi: 'active', 'inactive'
+  const [status, setStatus] = useState('active');
 
-  // State untuk loading dan pesan
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = async (event) => { // Ubah menjadi async
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
     setSuccessMessage('');
@@ -33,24 +29,22 @@ const AddDepartment = () => {
       setLoading(false);
       return;
     }
-    // form.classList.add('was-validated'); // Bisa dihapus jika error ditangani state
 
     if (!token) {
         setErrorMessage("Autentikasi dibutuhkan. Silakan login kembali.");
         setLoading(false);
-        logout(); // Panggil logout dari context jika token tidak ada
+        logout();
         navigate('/dashboard/login', {replace: true});
         return;
     }
 
     const departmentData = {
-      department_name: departmentName, // Sesuaikan dengan field DTO backend
+      department_name: departmentName,
       description: description,
       status: status,
     };
 
     try {
-      // Ganti dengan endpoint API Anda yang sebenarnya
       const response = await api.post('/admin/departments', departmentData, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -58,13 +52,11 @@ const AddDepartment = () => {
       });
 
       setSuccessMessage(response.data.message || 'Departemen berhasil ditambahkan!');
-      // Kosongkan form
       setDepartmentName('');
       setDescription('');
       setStatus('active');
-      form.classList.remove('was-validated'); // Hapus kelas validasi bootstrap
+      form.classList.remove('was-validated');
 
-      // Opsional: Arahkan ke halaman daftar departemen setelah beberapa detik
       setTimeout(() => {
         navigate('/dashboard/departments');
       }, 2000);
@@ -105,8 +97,6 @@ const AddDepartment = () => {
             </div>
           </div>
         </div>
-        
-        {/* --- Tampilkan Pesan Sukses atau Error --- */}
         {successMessage && <div className="alert alert-success" role="alert">{successMessage}</div>}
         {errorMessage && <div className="alert alert-danger" role="alert">{errorMessage}</div>}
 
@@ -117,8 +107,7 @@ const AddDepartment = () => {
                 <div className="card-body p-6">
                   <h4 className="mb-4 h5 mt-0">Department Information</h4>
                   <div className="row">
-                    {/* Department Name */}
-                    <div className="mb-3 col-lg-12"> {/* Dibuat full width */}
+                    <div className="mb-3 col-lg-12">
                       <label className="form-label" htmlFor="departmentNameInput">Department Name <span className="text-danger">*</span></label>
                       <input 
                         type="text" 
@@ -132,31 +121,25 @@ const AddDepartment = () => {
                       />
                       <div className="invalid-feedback">Please enter department name.</div>
                     </div>
-                    
-                    {/* Department ID Dihapus dari Form Input */}
-                    
-                    {/* Descriptions */}
-                    <div className="mb-1 col-lg-12" style={{minHeight: '250px'}}> {/* Tambah minHeight untuk ReactQuill */}
+                    <div className="mb-1 col-lg-12" style={{minHeight: '250px'}}>
                       <label className="form-label">Description</label>
                         <ReactQuill
                         theme="snow"
                         value={description}
                         onChange={setDescription}
-                        style={{ height: '150px' }} // Konten quill akan mengisi ini, marginBottom dihapus dari sini
+                        style={{ height: '150px' }}
                         placeholder="Write department description here..."
-                        readOnly={loading} // Tambahkan readOnly saat loading
+                        readOnly={loading}
                       />
                     </div>
-
-                    {/* Status */}
-                    <div className="mb-3 col-lg-12"> {/* Tambah margin top untuk spasi setelah ReactQuill */}
+                    <div className="mb-3 col-lg-12">
                       <label className="form-label d-block" id="departmentStatusLabel">Status <span className="text-danger">*</span></label>
                       <div className="form-check form-check-inline">
                         <input 
                             className="form-check-input" 
                             type="radio" 
                             name="departmentStatusRadio"
-                            id="statusActiveDept" // ID unik
+                            id="statusActiveDept"
                             value="active"
                             checked={status === 'active'} 
                             onChange={(e) => setStatus(e.target.value)} 
@@ -169,7 +152,7 @@ const AddDepartment = () => {
                             className="form-check-input" 
                             type="radio" 
                             name="departmentStatusRadio" 
-                            id="statusInactiveDept" // ID unik
+                            id="statusInactiveDept"
                             value="inactive"
                             checked={status === 'inactive'} 
                             onChange={(e) => setStatus(e.target.value)}
@@ -178,8 +161,6 @@ const AddDepartment = () => {
                         <label className="form-check-label" htmlFor="statusInactiveDept">Inactive</label>
                       </div>
                     </div>
-                    
-                    {/* Tombol Aksi */}
                     <div className="col-lg-12 mt-4">
                       <button type="submit" className="btn btn-primary" disabled={loading}>
                         {loading ? 'Creating...' : 'Create Department'}

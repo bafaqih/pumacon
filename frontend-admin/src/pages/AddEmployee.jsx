@@ -1,8 +1,7 @@
-// src/pages/AddEmployee.jsx
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext'; // Sesuaikan path jika perlu
-import api from '../services/api'; // Sesuaikan path jika perlu
+import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
 
 const AddEmployee = () => {
   const navigate = useNavigate();
@@ -26,14 +25,14 @@ const AddEmployee = () => {
   const [status, setStatus] = useState('active');
 
   const [addressStreet, setAddressStreet] = useState('');
-  const [addressCity, setAddressCity] = useState(''); // State untuk District/City
+  const [addressCity, setAddressCity] = useState('');
   const [addressProvince, setAddressProvince] = useState('');
   const [addressPostCode, setAddressPostCode] = useState('');
   const [addressCountry, setAddressCountry] = useState('');
 
   const [avatarPreview, setAvatarPreview] = useState('/assets/images/docs/placeholder-img.jpg');
   const [avatarFile, setAvatarFile] = useState(null);
-  const [validated, setValidated] = useState(false); // Untuk Bootstrap validation state
+  const [validated, setValidated] = useState(false);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -88,12 +87,11 @@ const AddEmployee = () => {
     setLoading(true);
     setSuccessMessage('');
     setErrorMessage('');
-    setValidated(true); // Tandai bahwa validasi telah dicoba
+    setValidated(true);
 
     const form = event.currentTarget;
     if (form.checkValidity() === false || selectedDepartmentId === "") {
       event.stopPropagation();
-      // Bootstrap 'was-validated' akan ditambahkan oleh setValidated dan class di form
       if (selectedDepartmentId === "") setErrorMessage("Departemen wajib dipilih.");
       setLoading(false);
       return;
@@ -111,11 +109,8 @@ const AddEmployee = () => {
     if (avatarFile) {
       formDataPayload.append('imageFile', avatarFile);
     }
-    // Jika avatarFile null, backend akan mengosongkan field Image atau menggunakan default jika ada logika itu
 
     const employeeData = {
-      // image field tidak perlu di jsonData jika sudah dihandle oleh imageFile
-      // backend akan mengisi field image dari file yang diupload
       full_name: fullName,
       birthday: birthDate,
       department_id: selectedDepartmentId,
@@ -126,7 +121,7 @@ const AddEmployee = () => {
       status: status,
       address: {
         street: addressStreet,
-        district_city: addressCity, // <<< GUNAKAN STATE 'addressCity' YANG BENAR
+        district_city: addressCity,
         province: addressProvince,
         post_code: addressPostCode,
         country: addressCountry,
@@ -139,15 +134,13 @@ const AddEmployee = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSuccessMessage(response.data.message || 'Employee berhasil ditambahkan!');
-      // Reset form
       setFullName(''); setEmail(''); setPhone(''); setBirthDate('');
       setSelectedDepartmentId(''); setRole(''); setJoinDate(''); setStatus('active');
       setAvatarFile(null); setAvatarPreview('/assets/images/docs/placeholder-img.jpg');
-      setAddressStreet(''); setAddressCity(''); setAddressProvince(''); // Reset addressCity
+      setAddressStreet(''); setAddressCity(''); setAddressProvince('');
       setAddressPostCode(''); setAddressCountry('');
-      setValidated(false); // Reset status validasi Bootstrap
-
-      // setTimeout(() => { navigate('/dashboard/employees'); }, 2000);
+      setValidated(false);
+      ;
     } catch (err) {
       if (err.response && err.response.status === 401) { 
         setErrorMessage('Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.');
@@ -188,7 +181,6 @@ const AddEmployee = () => {
             <form className={`needs-validation ${validated ? 'was-validated' : ''}`} onSubmit={handleSubmit} noValidate>
               <div className="card shadow border-0">
                 <div className="card-body d-flex flex-column gap-8 p-7">
-                  {/* Upload Gambar */}
                   <div className="d-flex flex-column flex-md-row align-items-center file-input-wrapper gap-2">
                     <div>
                       <img className="image avatar avatar-lg rounded-3" src={avatarPreview} alt="Employee Avatar Preview" />
@@ -200,13 +192,9 @@ const AddEmployee = () => {
                     </div>
                     <span className="ms-md-2 text-muted">JPG, GIF, PNG. Max 2MB.</span>
                   </div>
-                  {/* Input path manual dihapus sesuai permintaan */}
-
-                  {/* Employee Information */}
                   <div className="d-flex flex-column gap-4">
                     <h3 className="mb-0 h6">Employee Information</h3>
                     <div className="row g-3">
-                      {/* Full Name */}
                       <div className="col-lg-6 col-12">
                         <div>
                           <label htmlFor="addEmployeeName" className="form-label">Full Name <span className="text-danger">*</span></label>
@@ -214,7 +202,6 @@ const AddEmployee = () => {
                           <div className="invalid-feedback">Please enter full name.</div>
                         </div>
                       </div>
-                      {/* Email */}
                       <div className="col-lg-6 col-12">
                         <div>
                           <label htmlFor="addEmployeeEmail" className="form-label">Email <span className="text-danger">*</span></label>
@@ -222,7 +209,6 @@ const AddEmployee = () => {
                           <div className="invalid-feedback">Please enter a valid email.</div>
                         </div>
                       </div>
-                      {/* Phone */}
                       <div className="col-lg-6 col-12">
                         <div>
                           <label htmlFor="addEmployeePhone" className="form-label">Phone <span className="text-danger">*</span></label>
@@ -230,19 +216,16 @@ const AddEmployee = () => {
                           <div className="invalid-feedback">Please enter phone number.</div>
                         </div>
                       </div>
-                      {/* Birthday */}
                       <div className="col-lg-6 col-12">
                         <label className="form-label" htmlFor="addEmployeeBirthDate">Birthday <span className="text-danger">*</span></label>
                         <input type="date" className="form-control" id="addEmployeeBirthDate" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} required disabled={loading} />
                         <div className="invalid-feedback">Please enter birth date.</div>
                       </div>
-                      {/* Join Date */}
                       <div className="col-lg-6 col-12">
                         <label className="form-label" htmlFor="addEmployeeJoinDate">Join Date <span className="text-danger">*</span></label>
                         <input type="date" className="form-control" id="addEmployeeJoinDate" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} required disabled={loading} />
                         <div className="invalid-feedback">Please enter join date.</div>
                       </div>
-                      {/* Department Dropdown */}
                       <div className="col-lg-6 col-12">
                         <label htmlFor="addEmployeeDepartment" className="form-label">Department <span className="text-danger">*</span></label>
                         <select
@@ -260,7 +243,6 @@ const AddEmployee = () => {
                         </select>
                         <div className="invalid-feedback">{departmentsError ? departmentsError : 'Please select a department.'}</div>
                       </div>
-                      {/* Role Dropdown */}
                       <div className="col-lg-6 col-12">
                         <label htmlFor="addEmployeeRole" className="form-label">Role <span className="text-danger">*</span></label>
                         <select className="form-select" id="addEmployeeRole" value={role} onChange={(e) => setRole(e.target.value)} required disabled={loading}>
@@ -270,7 +252,6 @@ const AddEmployee = () => {
                         </select>
                         <div className="invalid-feedback">Please select a role.</div>
                       </div>
-                      {/* Status Radio Buttons */}
                       <div className="mb-3 col-lg-6 col-12">
                         <label className="form-label d-block" id="employeeStatusLabel">Status <span className="text-danger">*</span></label>
                         <div className="form-check form-check-inline">
@@ -285,7 +266,6 @@ const AddEmployee = () => {
                     </div>
                   </div>
                   
-                  {/* Address Information */}
                   <div className="d-flex flex-column gap-4">
                     <h3 className="mb-0 h6">Address Information</h3>
                     <div className="row g-3">

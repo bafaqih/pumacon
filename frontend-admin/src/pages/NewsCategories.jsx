@@ -1,85 +1,77 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
+import { Alert } from 'react-bootstrap';
 
 const NewsCategories = () => {
-  // Data kategori ini bisa berasal dari API call nantinya.
-  // Untuk sekarang, kita buat sebagai array objek untuk contoh.
-  // Field iconSrc tetap ada di data, meskipun tidak ditampilkan di tabel ini,
-  // karena mungkin digunakan di halaman lain (misalnya edit kategori).
-  const categoriesData = [
-    {
-      id: 'categoryOne',
-      iconSrc: '/assets/images/icons/snacks.svg', // Tetap ada di data
-      name: "Snack & Munchies",
-      newsCount: 12,
-      status: 'Published',
-      statusClass: 'bg-light-primary text-dark-primary',
-    },
-    {
-      id: 'categoryTwo',
-      iconSrc: '/assets/images/icons/bakery.svg', // Tetap ada di data
-      name: "Bakery & Biscuits",
-      newsCount: 8,
-      status: 'Published',
-      statusClass: 'bg-light-primary text-dark-primary',
-    },
-    {
-      id: 'categoryThree',
-      iconSrc: '/assets/images/icons/baby-food.svg', // Tetap ada di data
-      name: "Baby Care",
-      newsCount: 32,
-      status: 'Published',
-      statusClass: 'bg-light-primary text-dark-primary',
-    },
-    {
-      id: 'categoryFour',
-      iconSrc: '/assets/images/icons/wine.svg', // Tetap ada di data
-      name: "Cold Drinks & Juices",
-      newsCount: 34,
-      status: 'Published',
-      statusClass: 'bg-light-primary text-dark-primary',
-    },
-    {
-      id: 'categoryFive',
-      iconSrc: '/assets/images/icons/toiletries.svg', // Tetap ada di data
-      name: "Toiletries",
-      newsCount: 23,
-      status: 'Unpublished',
-      statusClass: 'bg-light-danger text-dark-danger',
-    },
-    {
-      id: 'categorySeven',
-      iconSrc: '/assets/images/icons/dairy.svg', // Tetap ada di data
-      name: "Dairy, Bread & Eggs",
-      newsCount: 16,
-      status: 'Published',
-      statusClass: 'bg-light-primary text-dark-primary',
-    },
-    {
-      id: 'categoryEight',
-      iconSrc: '/assets/images/icons/fish.svg', // Tetap ada di data
-      name: "Chicken, Meat & Fish",
-      newsCount: 14,
-      status: 'Published',
-      statusClass: 'bg-light-primary text-dark-primary',
-    },
-    {
-      id: 'categoryNine',
-      iconSrc: '/assets/images/icons/fruit.svg', // Tetap ada di data
-      name: "Fruits & Vegetables",
-      newsCount: 32,
-      status: 'Published',
-      statusClass: 'bg-light-primary text-dark-primary',
-    },
-    {
-      id: 'categoryTen',
-      iconSrc: '/assets/images/icons/petfoods.svg', // Tetap ada di data
-      name: "Pet Food",
-      newsCount: 25,
-      status: 'Unpublished',
-      statusClass: 'bg-light-danger text-dark-danger',
-    },
-  ];
+  const navigate = useNavigate();
+  const { token, logout } = useAuth();
+
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [actionMessage, setActionMessage] = useState(null);
+
+  const getStatusClass = (status) => {
+    if (!status) return 'bg-light-secondary text-dark-secondary';
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
+      case 'published':
+        return 'bg-light-success text-dark-success';
+      case 'unpublished':
+        return 'bg-light-warning text-dark-warning';
+      default:
+        return 'bg-light-secondary text-dark-secondary';
+    }
+  };
+
+  const fetchNewsCategories = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await api.get('/admin/news-categories', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCategories(response.data.categories || []);
+    } catch (err) {
+      console.error("Error fetching news categories:", err.response || err);
+      setError(err.response?.data?.error || "Failed to load news categories.");
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/dashboard/login', { replace: true });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [token, navigate, logout]);
+
+  useEffect(() => {
+    fetchNewsCategories();
+  }, [fetchNewsCategories]);
+
+  const handleDeleteCategory = async (categoryId, categoryName) => {
+    if (!window.confirm(`Are you sure you want to delete category "${categoryName}"?`)) {
+      return;
+    }
+    
+    setActionMessage(null);
+    try {
+      const response = await api.delete(`/admin/news-categories/${categoryId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setActionMessage({ type: 'success', text: response.data.message || 'Category deleted successfully!' });
+      fetchNewsCategories(); 
+    } catch (err) {
+      console.error(`Error deleting category ${categoryId}:`, err.response || err);
+      setActionMessage({ type: 'danger', text: err.response?.data?.error || 'Failed to delete category.' });
+    }
+  };
+
+
+  if (loading) {
+    return <main className="main-content-wrapper"><div className="container p-5 text-center">Loading news categories...</div></main>;
+  }
 
   return (
     <main className="main-content-wrapper">
@@ -88,12 +80,12 @@ const NewsCategories = () => {
           <div className="col-md-12">
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-4">
               <div>
-                <h2>News Categories</h2> {/* Menggunakan nama dari kode Anda */}
+                <h2>News Categories</h2>
                 <nav aria-label="breadcrumb">
                   <ol className="breadcrumb mb-0">
                     <li className="breadcrumb-item"><Link to="/dashboard" className="text-inherit">Dashboard</Link></li>
                     <li className="breadcrumb-item"><Link to="/dashboard/news" className="text-inherit">News</Link></li>
-                    <li className="breadcrumb-item active" aria-current="page">News Categories</li> {/* Disesuaikan */}
+                    <li className="breadcrumb-item active" aria-current="page">News Categories</li>
                   </ol>
                 </nav>
               </div>
@@ -103,6 +95,10 @@ const NewsCategories = () => {
             </div>
           </div>
         </div>
+
+        {actionMessage && <Alert variant={actionMessage.type} onClose={() => setActionMessage(null)} dismissible>{actionMessage.text}</Alert>}
+        {error && !actionMessage && <Alert variant="danger">{error}</Alert>}
+
         <div className="row">
           <div className="col-xl-12 col-12 mb-5">
             <div className="card h-100 card-lg">
@@ -115,7 +111,7 @@ const NewsCategories = () => {
                   </div>
                   <div className="col-xl-2 col-md-4 col-12">
                     <select className="form-select">
-                      <option>Status</option>
+                      <option>All Status</option>
                       <option value="Published">Published</option>
                       <option value="Unpublished">Unpublished</option>
                     </select>
@@ -127,71 +123,58 @@ const NewsCategories = () => {
                   <table className="table table-centered table-hover mb-0 text-nowrap table-borderless table-with-checkbox">
                     <thead className="bg-light">
                       <tr>
-                        <th>
-                          <div className="form-check">
-                            <input className="form-check-input" type="checkbox" value="" id="checkAll" />
-                            <label className="form-check-label" htmlFor="checkAll"></label>
-                          </div>
-                        </th>
-                        {/* <th>Icon</th> KOLOM IKON DIHAPUS */}
+                        <th><div className="form-check"><input className="form-check-input" type="checkbox" id="checkAll" /><label className="form-check-label" htmlFor="checkAll"></label></div></th>
                         <th>Name</th>
                         <th>News</th>
                         <th>Status</th>
-                        <th></th> {/* Kolom untuk action dropdown */}
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {categoriesData.map((category) => (
-                        <tr key={category.id}>
-                          <td>
-                            <div className="form-check">
-                              <input className="form-check-input" type="checkbox" value="" id={category.id} />
-                              <label className="form-check-label" htmlFor={category.id}></label>
-                            </div>
-                          </td>
-                          {/* <td>
-                             KOLOM IKON DAN ISINYA DIHAPUS
-                            <Link to={`/dashboard/product-categories/${category.id}/edit`}><img src={category.iconSrc} alt={category.name} className="icon-shape icon-sm" /></Link>
-                          </td> */}
-                          <td><Link to={`/dashboard/news/categories/${category.id}/edit`} className="text-reset">{category.name}</Link></td>
-                          <td>{category.newsCount}</td>
-                          <td>
-                            <span className={`badge ${category.statusClass}`}>{category.status}</span>
-                          </td>
-                          <td>
-                            <div className="dropdown">
-                              <Link to="#" className="text-reset" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i className="feather-icon icon-more-vertical fs-5"></i>
-                              </Link>
-                              <ul className="dropdown-menu">
-                                <li>
-                                  <Link className="dropdown-item" to="#"> {/* Fungsi delete perlu implementasi */}
-                                    <i className="bi bi-trash me-3"></i> Delete
-                                  </Link>
-                                </li>
-                                <li>
-                                  <Link className="dropdown-item" to={`/dashboard/news/categories/${category.id}/edit`}>
-                                    <i className="bi bi-pencil-square me-3"></i> Edit
-                                  </Link>
-                                </li>
-                              </ul>
-                            </div>
-                          </td>
+                      {categories.length > 0 ? (
+                        categories.map((category) => (
+                          <tr key={category.CategoryID}>
+                            <td>
+                              <div className="form-check">
+                                <input className="form-check-input" type="checkbox" id={`cat-${category.CategoryID}`} />
+                                <label className="form-check-label" htmlFor={`cat-${category.CategoryID}`}></label>
+                              </div>
+                            </td>
+                            <td><Link to={`/dashboard/news/categories/${category.CategoryID}/edit`} className="text-reset">{category.CategoryName}</Link></td>
+                            <td>{category.NewsPostCount || 0}</td> 
+                            <td><span className={`badge ${getStatusClass(category.Status)}`}>{category.Status}</span></td>
+                            <td>
+                              <div className="dropdown">
+                                <Link to="#" className="text-reset" data-bs-toggle="dropdown" aria-expanded="false">
+                                  <i className="feather-icon icon-more-vertical fs-5"></i>
+                                </Link>
+                                <ul className="dropdown-menu">
+                                  <li>
+                                    <button className="dropdown-item" onClick={() => handleDeleteCategory(category.CategoryID, category.CategoryName)}>
+                                      <i className="bi bi-trash me-3"></i>Delete
+                                    </button>
+                                  </li>
+                                  <li>
+                                    <Link className="dropdown-item" to={`/dashboard/news/categories/${category.CategoryID}/edit`}>
+                                      <i className="bi bi-pencil-square me-3"></i>Edit
+                                    </Link>
+                                  </li>
+                                </ul>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="5" className="text-center p-4">No categories found.</td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
               <div className="border-top d-flex justify-content-between align-items-md-center px-6 py-6 flex-md-row flex-column gap-4">
-                <span>Showing 1 to {categoriesData.length} of {categoriesData.length} entries</span>
-                <nav>
-                  <ul className="pagination mb-0">
-                    <li className="page-item disabled"><Link className="page-link" to="#!">Previous</Link></li>
-                    <li className="page-item"><Link className="page-link active" to="#!">1</Link></li>
-                    <li className="page-item"><Link className="page-link" to="#!">Next</Link></li>
-                  </ul>
-                </nav>
+                <span>Showing {categories.length} of {categories.length} entries</span>
               </div>
             </div>
           </div>
@@ -201,4 +184,4 @@ const NewsCategories = () => {
   );
 };
 
-export default NewsCategories; // Nama komponen sesuai kode Anda
+export default NewsCategories;

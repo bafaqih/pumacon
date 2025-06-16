@@ -1,32 +1,27 @@
-// src/pages/ProductCategories.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext'; // Sesuaikan path jika perlu
-import api from '../services/api'; // Sesuaikan path jika perlu
+import { useAuth } from '../contexts/AuthContext'; 
+import api from '../services/api'; 
 
 const ProductCategories = () => {
   const [categoriesList, setCategoriesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState(''); // Untuk pesan sukses (misal setelah delete)
+  const [successMessage, setSuccessMessage] = useState(''); 
 
   const { token, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Fungsi untuk menentukan kelas badge berdasarkan status
   const getStatusClass = (status) => {
     if (!status) return 'bg-light-secondary text-dark-secondary';
-    // Sesuaikan value status jika berbeda dengan 'Published'/'Unpublished'
-    // Misal, jika backend mengembalikan 'active'/'inactive'
     if (status.toLowerCase() === 'published' || status.toLowerCase() === 'active') {
-      return 'bg-light-primary text-dark-primary'; // Atau bg-light-success text-dark-success
+      return 'bg-light-primary text-dark-primary'; 
     } else if (status.toLowerCase() === 'unpublished' || status.toLowerCase() === 'inactive') {
       return 'bg-light-danger text-dark-danger';
     }
     return 'bg-light-secondary text-dark-secondary';
   };
 
-  // Fungsi untuk mengambil daftar kategori produk
   const fetchProductCategories = useCallback(async () => {
     if (!token) {
       setError("Autentikasi dibutuhkan untuk melihat data kategori produk.");
@@ -37,12 +32,9 @@ const ProductCategories = () => {
     setError('');
     setSuccessMessage('');
     try {
-      // Endpoint ini akan kita buat di backend
       const response = await api.get('/admin/product-categories', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Asumsi backend mengembalikan { categories: [...] } atau langsung array [...]
-      // Setiap kategori HARUS memiliki CategoryID, CategoryName, ProductsCount (jika ada dari backend), Status
       setCategoriesList(response.data.categories || response.data || []);
     } catch (err) {
       console.error("Error fetching product categories:", err);
@@ -62,7 +54,6 @@ const ProductCategories = () => {
     fetchProductCategories();
   }, [fetchProductCategories]);
 
-  // Fungsi untuk menangani delete kategori produk
   const handleDeleteCategory = async (categoryId, categoryName) => {
     if (!window.confirm(`Apakah Anda yakin ingin menghapus kategori "${categoryName}" (ID: ${categoryId})? Ini mungkin mempengaruhi produk yang terkait.`)) {
       return;
@@ -74,12 +65,11 @@ const ProductCategories = () => {
     setError('');
     setSuccessMessage('');
     try {
-      // Endpoint ini akan kita buat di backend
       await api.delete(`/admin/product-categories/${categoryId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSuccessMessage(`Kategori "${categoryName}" berhasil dihapus.`);
-      setCategoriesList(prevList => prevList.filter(cat => cat.CategoryID !== categoryId)); // Gunakan CategoryID
+      setCategoriesList(prevList => prevList.filter(cat => cat.CategoryID !== categoryId));
     } catch (err) {
       console.error(`Error deleting category ${categoryId}:`, err);
       if (err.response && err.response.status === 401) {
@@ -131,7 +121,7 @@ const ProductCategories = () => {
                   <div className="col-xl-2 col-md-4 col-12">
                     <select className="form-select">
                       <option value="">All Status</option>
-                      <option value="active">Active</option> {/* Sesuaikan value jika backend pakai active/inactive */}
+                      <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                     </select>
                   </div>
@@ -154,14 +144,13 @@ const ProductCategories = () => {
                             </div>
                           </th>
                           <th>Name</th>
-                          <th>Products</th> {/* Ini akan menjadi jumlah produk dalam kategori ini */}
+                          <th>Products</th> 
                           <th>Status</th>
                           <th></th>
                         </tr>
                       </thead>
                       <tbody>
                         {categoriesList.map((category) => (
-                          // Ganti category.id dengan category.CategoryID (sesuai model backend)
                           <tr key={category.CategoryID}> 
                             <td>
                               <div className="form-check">
@@ -171,10 +160,9 @@ const ProductCategories = () => {
                             </td>
                             <td>
                               <Link to={`/dashboard/products/categories/${category.CategoryID}/edit`} className="text-reset">
-                                {category.CategoryName} {/* Ganti category.name menjadi category.CategoryName */}
+                                {category.CategoryName}
                               </Link>
                             </td>
-                            {/* Ganti category.productsCount menjadi category.ProductsCount atau nama field yang sesuai dari API */}
                             <td>{category.ProductsCount !== undefined ? category.ProductsCount : '-'}</td> 
                             <td>
                               <span className={`badge ${getStatusClass(category.Status)}`}>{category.Status}</span>
@@ -209,7 +197,7 @@ const ProductCategories = () => {
                 )}
                 {!loading && !error && categoriesList.length > 0 && (
                    <div className="border-top d-flex justify-content-between align-items-md-center px-6 py-6 flex-md-row flex-column gap-4">
-                      <span>Showing 1 to {categoriesList.length} of {categoriesList.length} entries</span> {/* Perlu pagination backend */}
+                      <span>Showing 1 to {categoriesList.length} of {categoriesList.length} entries</span>
                       <nav>
                           <ul className="pagination mb-0">
                               <li className="page-item disabled"><Link className="page-link" to="#!">Previous</Link></li>

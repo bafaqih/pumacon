@@ -1,15 +1,14 @@
-// src/contexts/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import api from '../services/api'; // Asumsi Anda punya file src/services/api.js
+import api from '../services/api';
 import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('adminAuthToken'));
-  const [adminDetails, setAdminDetails] = useState(null); // <--- State untuk detail admin
-  const [loading, setLoading] = useState(false); // Loading umum untuk proses auth
-  const [loadingDetails, setLoadingDetails] = useState(false); // Loading untuk fetch details
+  const [adminDetails, setAdminDetails] = useState(null);
+  const [loading, setLoading] = useState(false); 
+  const [loadingDetails, setLoadingDetails] = useState(false); 
   const [authError, setAuthError] = useState(null);
 
     const fetchAdminDetails = useCallback(async (currentAuthToken) => {
@@ -20,9 +19,8 @@ export const AuthProvider = ({ children }) => {
     setLoadingDetails(true);
     setAuthError(null);
     try {
-      // Dekode token untuk mendapatkan EmployeeID (jika tidak dikirim langsung dari login)
       const decodedToken = jwtDecode(currentAuthToken);
-      const employeeIdFromToken = decodedToken.employee_id; // Sesuaikan dengan nama claim Anda
+      const employeeIdFromToken = decodedToken.employee_id;
 
       if (!employeeIdFromToken) {
           throw new Error("Employee ID tidak ditemukan di dalam token.");
@@ -31,23 +29,21 @@ export const AuthProvider = ({ children }) => {
       console.log('[AuthContext] fetchAdminDetails: Token yang digunakan:', currentAuthToken);
       console.log('[AuthContext] fetchAdminDetails: Axios default auth header:', api.defaults.headers.common['Authorization']);
 
-      const response = await api.get(`/admin/profile`); // Backend akan tahu siapa dari token
+      const response = await api.get(`/admin/profile`);
 
-      console.log('[AuthContext] fetchAdminDetails: Respons dari /admin/profile:', response.data); // Log respons sukses
+      console.log('[AuthContext] fetchAdminDetails: Respons dari /admin/profile:', response.data);
       
-      // Simpan detail yang relevan
       setAdminDetails({
-        employeeId: response.data.employeeId || employeeIdFromToken, // Ambil dari response jika ada, atau dari token
+        employeeId: response.data.employeeId || employeeIdFromToken,
         fullName: response.data.fullName,
-        role: response.data.role || decodedToken.role, // Ambil dari response jika ada, atau dari token
-        image: response.data.image, // Path atau URL gambar
+        role: response.data.role || decodedToken.role,
+        image: response.data.image,
       });
 
     } catch (error) {
       console.error("Gagal mengambil detail admin:", error);
       setAuthError("Gagal memuat detail admin. Sesi mungkin tidak valid.");
-      // Jika gagal fetch detail (misal token expired), logout
-      setToken(null); // Ini akan memicu useEffect di bawah untuk clear localStorage & header
+      setToken(null);
       setAdminDetails(null);
     } finally {
       setLoadingDetails(false);
@@ -58,11 +54,11 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       localStorage.setItem('adminAuthToken', token);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchAdminDetails(token); // Ambil detail admin jika token ada (saat load/refresh)
+      fetchAdminDetails(token); 
     } else {
       localStorage.removeItem('adminAuthToken');
       delete api.defaults.headers.common['Authorization'];
-      setAdminDetails(null); // Hapus detail admin jika tidak ada token
+      setAdminDetails(null);
     }
   }, [token, fetchAdminDetails])
 
@@ -75,7 +71,7 @@ export const AuthProvider = ({ children }) => {
         password: password,
       });
       const newToken = response.data.token;
-      setToken(newToken); // Ini akan memicu useEffect di atas untuk fetchAdminDetails
+      setToken(newToken);
       setLoading(false);
       return true;
     } catch (error) {
@@ -88,14 +84,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    setToken(null); // Ini akan memicu useEffect untuk clear localStorage, header, dan adminDetails
-    // Redirect ke login akan dihandle oleh ProtectedRoute atau komponen yang memanggil logout
+    setToken(null);
     console.log("Admin logged out");
   };
 
-  // --- FUNGSI REGISTER ADMIN SEKARANG AKTIF ---
   const registerAdmin = async (employeeId, password) => {
-    // ... (implementasi registerAdmin Anda)
     setLoading(true);
     setAuthError(null);
     try {
@@ -116,16 +109,16 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     token,
-    adminDetails, // <--- Ekpos adminDetails
+    adminDetails,
     isLoggedIn: !!token,
     loading,
-    loadingDetails, // <--- Ekpos loadingDetails
+    loadingDetails,
     authError,
     login,
     logout,
     registerAdmin,
     clearAuthError: () => setAuthError(null),
-    refreshAdminDetails: () => { if(token) fetchAdminDetails(token); } // <--- Fungsi untuk refresh manual jika perlu
+    refreshAdminDetails: () => { if(token) fetchAdminDetails(token); }
   }
 
   return (
@@ -137,7 +130,7 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) { // Perbaikan: context bisa null, undefined lebih tepat untuk pengecekan awal
+  if (context === undefined) { 
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

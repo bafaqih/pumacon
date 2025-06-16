@@ -1,4 +1,3 @@
-// src/components/public/Navbar.jsx
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import React, { useEffect, useState } from "react";
 import { useTranslation } from 'react-i18next';
@@ -18,17 +17,19 @@ const Navbar = () => {
   }, [location.pathname]);
 
   const handleAccountIconClick = (e) => {
-    e.preventDefault();
-    if (isLoggedIn) {
-      navigate('/account/profile');
+  e.preventDefault();
+  console.log("[Navbar] handleAccountIconClick. isLoggedIn:", isLoggedIn); 
+  if (isLoggedIn) {
+    navigate('/account/profile');
+  } else {
+    if (typeof triggerLoginModal === 'function') {
+      console.log("[Navbar] Memanggil triggerLoginModal dari context..."); 
+      triggerLoginModal(location); 
     } else {
-      if (typeof triggerLoginModal === 'function') {
-        triggerLoginModal(location);
-      } else {
-        console.warn("triggerLoginModal function is not available in AuthContext");
-      }
+      console.error("[Navbar] triggerLoginModal BUKAN fungsi di AuthContext!"); 
     }
-  };
+  }
+};
 
   const handleLogout = () => {
     logout();
@@ -90,17 +91,16 @@ const Navbar = () => {
                     </Link>
                   </li>
                   
-                  {/* --- IKON AKUN/PROFIL --- */}
                   <li className="nav-item">
-                    <a // Menggunakan <a> karena onClick yang menangani aksi
+                    <a 
                       href="#!"
-                      className="nav-link" // Sesuaikan kelas jika perlu
+                      className="nav-link" 
                       onClick={handleAccountIconClick}
                       title={isLoggedIn ? (currentUser?.name || currentUser?.email || "My Account") : "Login / Register"}
                       role="button"
                       style={{ cursor: 'pointer' }}
                     >
-                      {isLoggedIn && currentUser?.avatar ? ( // Contoh jika ada avatar di currentUser
+                      {isLoggedIn && currentUser?.avatar ? (
                           <img src={currentUser.avatar} alt="avatar" style={{width: 25, height: 25, borderRadius: '50%'}} />
                       ) : (
                         <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -132,19 +132,11 @@ const Navbar = () => {
                 <li><NavLink to="/products" onClick={(e) => handleNavClick(e, '/products')} className={({ isActive }) => isActive ? 'active' : ''}>{t("products")}</NavLink></li>
                 <li><NavLink to="/news" onClick={(e) => handleNavClick(e, '/news')} className={({ isActive }) => isActive ? 'active' : ''}>{t("news")}</NavLink></li>
                 <li><NavLink to="/contact" onClick={(e) => handleNavClick(e, '/contact')} className={({ isActive }) => isActive ? 'active' : ''}>{t("contact")}</NavLink></li>
-                {/* --- HAPUS BLOK KODE INI UNTUK MENGHILANGKAN LINK "My Account" DARI NAVIGASI UTAMA --- */}
-                {/*
-                {isLoggedIn && (
-                    <li><NavLink to="/account/profile" onClick={(e) => handleNavClick(e, '/account/profile')} className={({ isActive }) => isActive ? 'active' : ''}>My Account</NavLink></li>
-                )}
-                */}
-                {/* --- AKHIR BLOK KODE YANG DIHAPUS --- */}
               </ul>
             </div>
           </div>
         </div>
       </div>
-      {/* Rendering Modal sudah dipindahkan ke App.jsx */}
     </header>
   );
 };

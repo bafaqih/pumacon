@@ -1,46 +1,41 @@
-// src/pages/EditEmployee.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext'; // Sesuaikan path jika perlu
-import api from '../services/api'; // Sesuaikan path jika perlu
+import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api'; 
 
 const EditEmployee = () => {
-  const { employeeId: paramEmployeeId } = useParams(); // Ambil employeeId dari URL
+  const { employeeId: paramEmployeeId } = useParams();
   const navigate = useNavigate();
   const { token, logout } = useAuth();
 
-  // State untuk loading dan pesan
-  const [loading, setLoading] = useState(false);         // Untuk proses submit
-  const [loadingData, setLoadingData] = useState(true); // Untuk fetch data awal employee
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // State untuk daftar departemen
   const [departmentsOptions, setDepartmentsOptions] = useState([]);
   const [loadingDepartments, setLoadingDepartments] = useState(true);
   const [departmentsError, setDepartmentsError] = useState('');
 
-  // State untuk form fields
   const [employeeIdDisplay, setEmployeeIdDisplay] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [birthDate, setBirthDate] = useState('');
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState(''); // Untuk Department ID yang dipilih
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState(''); 
   const [role, setRole] = useState('');
   const [joinDate, setJoinDate] = useState('');
   const [status, setStatus] = useState('active');
-  const [currentImagePath, setCurrentImagePath] = useState(''); // Path gambar yang ada dari DB
+  const [currentImagePath, setCurrentImagePath] = useState(''); 
 
-  // State untuk alamat
   const [addressStreet, setAddressStreet] = useState('');
-  const [addressDistrictCity, setAddressDistrictCity] = useState(''); // Nama state konsisten
+  const [addressDistrictCity, setAddressDistrictCity] = useState(''); 
   const [addressProvince, setAddressProvince] = useState('');
   const [addressPostCode, setAddressPostCode] = useState('');
   const [addressCountry, setAddressCountry] = useState('');
 
   const [avatarPreview, setAvatarPreview] = useState('/assets/images/docs/placeholder-img.jpg');
-  const [avatarFile, setAvatarFile] = useState(null); // Untuk file gambar baru jika diubah
+  const [avatarFile, setAvatarFile] = useState(null);
   const [validated, setValidated] = useState(false);
 
   const defaultAvatar = '/assets/images/avatar/default-avatar.png';
@@ -65,7 +60,6 @@ const EditEmployee = () => {
     } catch (e) { return ''; }
   };
 
-  // 1. useEffect untuk mengambil daftar departemen (sama seperti AddEmployee)
   useEffect(() => {
     const fetchDepartments = async () => {
       if (!token) {
@@ -83,7 +77,6 @@ const EditEmployee = () => {
     fetchDepartments();
   }, [token, navigate, logout]);
 
-  // 2. useEffect untuk mengambil data employee yang akan diedit
   useEffect(() => {
     const fetchEmployeeData = async () => {
       if (!paramEmployeeId || !token) {
@@ -95,14 +88,14 @@ const EditEmployee = () => {
       setLoadingData(true); setErrorMessage('');
       try {
         const response = await api.get(`/admin/employees/${paramEmployeeId}`, { headers: { Authorization: `Bearer ${token}` } });
-        const emp = response.data.employee || response.data; // Sesuaikan dengan respons API
+        const emp = response.data.employee || response.data; 
         if (emp) {
           setEmployeeIdDisplay(emp.EmployeeID);
           setFullName(emp.FullName || '');
           setEmail(emp.Email || '');
           setPhone(emp.Phone || '');
           setBirthDate(formatDateForInput(emp.Birthday));
-          setSelectedDepartmentId(emp.Department || ''); // emp.Department dari backend berisi DepartmentID
+          setSelectedDepartmentId(emp.Department || ''); 
           setRole(emp.Role || '');
           setJoinDate(formatDateForInput(emp.JoinDate));
           setStatus(emp.Status || 'active');
@@ -122,13 +115,13 @@ const EditEmployee = () => {
         console.error("Fetch employee data error:", err);
       } finally { setLoadingData(false); }
     };
-    if (paramEmployeeId) { // Hanya fetch jika paramEmployeeId ada
+    if (paramEmployeeId) { 
         fetchEmployeeData();
     }
   }, [paramEmployeeId, token, navigate, logout, getImageUrl]);
 
 
-  useEffect(() => { // Cleanup avatar preview
+  useEffect(() => {
     if (avatarPreview && avatarPreview.startsWith('blob:')) {
       const currentPreview = avatarPreview;
       return () => URL.revokeObjectURL(currentPreview);
@@ -142,7 +135,7 @@ const EditEmployee = () => {
       setAvatarPreview(URL.createObjectURL(file));
     } else {
       setAvatarFile(null);
-      setAvatarPreview(getImageUrl(currentImagePath)); // Kembali ke gambar saat ini jika batal
+      setAvatarPreview(getImageUrl(currentImagePath));
     }
   };
 
@@ -161,21 +154,19 @@ const EditEmployee = () => {
       return;
     }
 
-    if (!token) { /* ... (penanganan token) ... */ 
+    if (!token) {
         setErrorMessage("Autentikasi dibutuhkan..."); logout(); navigate('/dashboard/login', {replace: true}); setLoading(false); return;
     }
 
     const formDataPayload = new FormData();
-    if (avatarFile) { // Hanya kirim imageFile jika ada file baru
+    if (avatarFile) { 
       formDataPayload.append('imageFile', avatarFile);
     }
 
     const employeeDataForUpdate = {
-      // EmployeeID tidak dikirim di body JSON, sudah ada di URL
-      // Image path juga tidak dikirim di JSON jika pakai imageFile, backend yang urus
       full_name: fullName,
       birthday: birthDate,
-      department_id: selectedDepartmentId, // <<< Kirim Department ID yang dipilih
+      department_id: selectedDepartmentId,
       email: email,
       phone: phone,
       join_date: joinDate,
@@ -183,7 +174,7 @@ const EditEmployee = () => {
       status: status,
       address: {
         street: addressStreet,
-        district_city: addressDistrictCity, // Menggunakan state yang benar
+        district_city: addressDistrictCity,
         province: addressProvince,
         post_code: addressPostCode,
         country: addressCountry,
@@ -200,9 +191,8 @@ const EditEmployee = () => {
         setCurrentImagePath(response.data.employee.Image);
         setAvatarPreview(getImageUrl(response.data.employee.Image));
       }
-      setAvatarFile(null); // Reset avatar file
+      setAvatarFile(null);
       setValidated(false);
-      // setTimeout(() => { navigate('/dashboard/employees'); }, 2000);
     } catch (err) {
       if (err.response && err.response.status === 401) { setErrorMessage('Sesi tidak valid.'); logout(); navigate('/dashboard/login', {replace: true});}
       else { setErrorMessage(err.response?.data?.error || 'Gagal mengupdate employee.'); }
@@ -218,7 +208,7 @@ const EditEmployee = () => {
     );
   }
 
-  if (errorMessage && !fullName && !loadingData) { // Error saat fetch data awal
+  if (errorMessage && !fullName && !loadingData) {
       return (
           <main className="main-content-wrapper">
               <div className="container">
@@ -249,13 +239,12 @@ const EditEmployee = () => {
         <div className="row">
           <div className="col-12">
             {successMessage && <div className="alert alert-success" role="alert">{successMessage}</div>}
-            {errorMessage && !loadingData && <div className="alert alert-danger" role="alert">{errorMessage}</div>} {/* Hanya tampilkan error submit jika tidak sedang loading data awal */}
+            {errorMessage && !loadingData && <div className="alert alert-danger" role="alert">{errorMessage}</div>}
             {departmentsError && <div className="alert alert-warning" role="alert">{departmentsError}</div>}
 
             <form className={`needs-validation ${validated ? 'was-validated' : ''}`} onSubmit={handleSubmit} noValidate>
               <div className="card shadow border-0">
                 <div className="card-body d-flex flex-column gap-8 p-7">
-                  {/* Avatar/Gambar */}
                   <div className="d-flex flex-column flex-md-row align-items-center file-input-wrapper gap-2">
                     <div><img className="image avatar avatar-lg rounded-3" src={avatarPreview} alt="Employee Avatar" /></div>
                     <div className="file-upload btn btn-light ms-md-4">
@@ -263,53 +252,44 @@ const EditEmployee = () => {
                         onChange={handleAvatarChange} accept="image/jpeg, image/png, image/gif" disabled={loading || loadingData} />
                       <label htmlFor="employeeAvatarUpload" style={{ cursor: 'pointer' }}>Change Photo</label>
                     </div>
-                    <span className="ms-md-2 text-muted">JPG, GIF, PNG. Max 2MB.</span>
+                    <span className="ms-md-2 text-muted">JPG, PNG. Max 2MB.</span>
                   </div>
-
-                  {/* Employee Information */}
                   <div className="d-flex flex-column gap-4">
                     <h3 className="mb-0 h6">Employee Information</h3>
                     <div className="row g-3">
-                      {/* Employee ID (Read-Only) */}
                       <div className="col-lg-6 col-12">
                         <div><label htmlFor="editEmployeeId" className="form-label">Employee ID</label>
                           <input type="text" className="form-control" id="editEmployeeId" value={employeeIdDisplay} readOnly disabled style={{ backgroundColor: '#e9ecef' }} />
                         </div>
                       </div>
-                      {/* Full Name */}
                       <div className="col-lg-6 col-12">
                         <div><label htmlFor="editEmployeeName" className="form-label">Full Name <span className="text-danger">*</span></label>
                           <input type="text" className="form-control" id="editEmployeeName" placeholder="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} required disabled={loading || loadingData} />
                           <div className="invalid-feedback">Please enter full name.</div>
                         </div>
                       </div>
-                      {/* Email */}
                       <div className="col-lg-6 col-12">
                         <div><label htmlFor="editEmployeeEmail" className="form-label">Email <span className="text-danger">*</span></label>
                           <input type="email" className="form-control" id="editEmployeeEmail" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading || loadingData} />
                           <div className="invalid-feedback">Please enter a valid email.</div>
                         </div>
                       </div>
-                      {/* Phone */}
                       <div className="col-lg-6 col-12">
                         <div><label htmlFor="editEmployeePhone" className="form-label">Phone <span className="text-danger">*</span></label>
                           <input type="text" className="form-control" id="editEmployeePhone" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} required disabled={loading || loadingData} />
                           <div className="invalid-feedback">Please enter phone number.</div>
                         </div>
                       </div>
-                      {/* Birthday */}
                       <div className="col-lg-6 col-12">
                         <label className="form-label" htmlFor="editEmployeeBirthDate">Birthday <span className="text-danger">*</span></label>
                         <input type="date" className="form-control" id="editEmployeeBirthDate" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} required disabled={loading || loadingData} />
                         <div className="invalid-feedback">Please enter birth date.</div>
                       </div>
-                      {/* Join Date */}
                       <div className="col-lg-6 col-12">
                         <label className="form-label" htmlFor="editEmployeeJoinDate">Join Date <span className="text-danger">*</span></label>
                         <input type="date" className="form-control" id="editEmployeeJoinDate" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} required disabled={loading || loadingData} />
                         <div className="invalid-feedback">Please enter join date.</div>
                       </div>
-                      {/* Department Dropdown */}
                       <div className="col-lg-6 col-12">
                         <label htmlFor="editEmployeeDepartment" className="form-label">Department <span className="text-danger">*</span></label>
                         <select className="form-select" id="editEmployeeDepartment" value={selectedDepartmentId} onChange={(e) => setSelectedDepartmentId(e.target.value)} required disabled={loading || loadingData || loadingDepartments}>
@@ -320,7 +300,6 @@ const EditEmployee = () => {
                         </select>
                         <div className="invalid-feedback">{departmentsError ? departmentsError : 'Please select a department.'}</div>
                       </div>
-                      {/* Role Dropdown */}
                       <div className="col-lg-6 col-12">
                         <label htmlFor="editEmployeeRole" className="form-label">Role <span className="text-danger">*</span></label>
                         <select className="form-select" id="editEmployeeRole" value={role} onChange={(e) => setRole(e.target.value)} required disabled={loading || loadingData}>
@@ -330,10 +309,8 @@ const EditEmployee = () => {
                         </select>
                         <div className="invalid-feedback">Please select a role.</div>
                       </div>
-                      {/* Status Radio Buttons */}
                       <div className="mb-3 col-lg-6 col-12">
                         <label className="form-label d-block">Status <span className="text-danger">*</span></label>
-                        {/* ... radio buttons untuk status (active, inactive, on_leave) dengan disabled={loading || loadingData} ... */}
                         <div className="form-check form-check-inline"><input className="form-check-input" type="radio" name="editEmployeeStatusRadio" id="statusActiveEdit" value="active" checked={status === 'active'} onChange={(e) => setStatus(e.target.value)} disabled={loading||loadingData} /><label className="form-check-label" htmlFor="statusActiveEdit">Active</label></div>
                         <div className="form-check form-check-inline"><input className="form-check-input" type="radio" name="editEmployeeStatusRadio" id="statusInactiveEdit" value="inactive" checked={status === 'inactive'} onChange={(e) => setStatus(e.target.value)} disabled={loading||loadingData} /><label className="form-check-label" htmlFor="statusInactiveEdit">Inactive</label></div>
                         <div className="form-check form-check-inline"><input className="form-check-input" type="radio" name="editEmployeeStatusRadio" id="statusOnleaveEdit" value="on_leave" checked={status === 'on_leave'} onChange={(e) => setStatus(e.target.value)} disabled={loading||loadingData} /><label className="form-check-label" htmlFor="statusOnleaveEdit">On Leave</label></div>
@@ -341,11 +318,9 @@ const EditEmployee = () => {
                     </div>
                   </div>
                   
-                  {/* Address Information */}
                   <div className="d-flex flex-column gap-4">
                     <h3 className="mb-0 h6">Address Information</h3>
                     <div className="row g-3">
-                        {/* ... semua input alamat dengan disabled={loading || loadingData} ... */}
                         <div className="col-12"><label htmlFor="editEmpAddrStreet" className="form-label">Street <span className="text-danger">*</span></label><input type="text" className="form-control" id="editEmpAddrStreet" placeholder="Street Address" value={addressStreet} onChange={(e) => setAddressStreet(e.target.value)} required disabled={loading||loadingData} /><div className="invalid-feedback">Please enter street.</div></div>
                         <div className="col-md-6"><label htmlFor="editEmpAddrCity" className="form-label">District/City <span className="text-danger">*</span></label><input type="text" className="form-control" id="editEmpAddrCity" placeholder="District/City" value={addressDistrictCity} onChange={(e) => setAddressDistrictCity(e.target.value)} required disabled={loading||loadingData} /><div className="invalid-feedback">Please enter district/city.</div></div>
                         <div className="col-md-6"><label htmlFor="editEmpAddrProvince" className="form-label">Province <span className="text-danger">*</span></label><input type="text" className="form-control" id="editEmpAddrProvince" placeholder="Province" value={addressProvince} onChange={(e) => setAddressProvince(e.target.value)} required disabled={loading||loadingData} /><div className="invalid-feedback">Please enter province.</div></div>

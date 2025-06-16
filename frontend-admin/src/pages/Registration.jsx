@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext'; // Sesuaikan path ke AuthContext.jsx Anda
+import { useAuth } from '../contexts/AuthContext';
 
-// Asumsikan logoPath dan backgrounds sudah benar
 const logoPath = '/logo.png';
 const backgrounds = [
   '/assets/images/background/bnr1.jpg',
@@ -21,19 +20,17 @@ const Registration = () => {
   const [isFocusedId, setIsFocusedId] = useState(false);
   const [isFocusedPass, setIsFocusedPass] = useState(false);
 
-  // State untuk pesan dari API
+
   const [message, setMessage] = useState('');
-  const [localError, setLocalError] = useState(''); // Error spesifik untuk form ini
+  const [localError, setLocalError] = useState('');
 
   const navigate = useNavigate();
-  const { registerAdmin, loading, authError, clearAuthError, isLoggedIn } = useAuth(); // Ambil dari context
+  const { registerAdmin, loading, authError, clearAuthError, isLoggedIn } = useAuth();
 
   useEffect(() => {
-    // Jika sudah login, redirect ke dashboard
     if (isLoggedIn) {
       navigate('/dashboard', { replace: true });
     }
-    // Bersihkan global authError saat komponen dimuat, jika ada
     if (authError && typeof clearAuthError === 'function') {
         clearAuthError();
     }
@@ -46,11 +43,11 @@ const Registration = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSubmit = async (event) => { // Jadikan async
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setMessage('');
     setLocalError('');
-    if (typeof clearAuthError === 'function') clearAuthError(); // Clear global error
+    if (typeof clearAuthError === 'function') clearAuthError();
 
     const form = event.currentTarget;
     if (form.checkValidity() === false) {
@@ -58,23 +55,19 @@ const Registration = () => {
       form.classList.add('was-validated');
       return;
     }
-    form.classList.add('was-validated'); // Tetap gunakan validasi bootstrap jika mau
+    form.classList.add('was-validated');
 
     try {
-      // Panggil fungsi registerAdmin dari AuthContext
       const responseData = await registerAdmin(employeeId, password);
       setMessage(responseData.message || 'Registrasi berhasil! Silakan login.');
-      setEmployeeId(''); // Kosongkan form setelah berhasil
+      setEmployeeId('');
       setPassword('');
-      form.classList.remove('was-validated'); // Hapus status validasi bootstrap
-      
-      // Arahkan ke halaman login setelah beberapa detik atau tampilkan pesan untuk login
+      form.classList.remove('was-validated');
       setTimeout(() => {
         navigate('/dashboard/login');
-      }, 3000); // Arahkan ke login setelah 3 detik
+      }, 3000);
 
     } catch (err) {
-      // err.message adalah yang di-throw dari fungsi registerAdmin di context
       setLocalError(err.message || 'Registrasi gagal. Silakan coba lagi.');
       console.error('Registration error:', err);
       form.classList.remove('was-validated');
@@ -87,7 +80,6 @@ const Registration = () => {
 
   return (
     <div className="vh-100 w-100 d-flex">
-      {/* Kiri: Form Register */}
       <div
         style={{
           width: '30%',
@@ -104,12 +96,9 @@ const Registration = () => {
           </div>
           <h5 className="fs-4 fw-bold mb-1">Admin Registration</h5>
           <p className="mb-4" style={{ fontSize: '0.9rem' }}>Create your new admin account.</p>
-          
-          {/* Tampilkan pesan sukses atau error dari API */}
+
           {message && <div className="alert alert-success" role="alert">{message}</div>}
           {localError && <div className="alert alert-danger" role="alert">{localError}</div>}
-          {/* Jika Anda juga ingin menampilkan authError global dari context: */}
-          {/* authError && !localError && <div className="alert alert-danger" role="alert">{authError}</div> */}
 
           <form className="needs-validation" onSubmit={handleSubmit} noValidate>
             <div className="mb-3">
@@ -126,7 +115,7 @@ const Registration = () => {
                 onFocus={() => setIsFocusedId(true)}
                 onBlur={() => setIsFocusedId(false)}
                 required
-                disabled={loading} // Tambahkan disabled saat loading
+                disabled={loading}
                 style={{
                   borderRadius: 0,
                   borderColor: isFocusedId ? '#4885ED' : '#ced4da',
@@ -149,8 +138,8 @@ const Registration = () => {
                 onFocus={() => setIsFocusedPass(true)}
                 onBlur={() => setIsFocusedPass(false)}
                 required
-                minLength="6" // Tambahkan validasi minLength jika perlu
-                disabled={loading} // Tambahkan disabled saat loading
+                minLength="6" 
+                disabled={loading} 
                 style={{
                   borderRadius: 0,
                   borderColor: isFocusedPass ? '#4885ED' : '#ced4da',
@@ -182,7 +171,7 @@ const Registration = () => {
                 type="submit" 
                 className="btn rounded-0 fw-bold" 
                 style={{ backgroundColor: '#4885ED', color: '#fff', border: 'none' }}
-                disabled={loading} // Tambahkan disabled saat loading
+                disabled={loading} 
               >
                 {loading ? 'Registering...' : 'Register'}
               </button>
@@ -198,7 +187,6 @@ const Registration = () => {
         </div>
       </div>
 
-      {/* Kanan: Slideshow */}
       <div
         style={{
           width: '70%',
@@ -209,7 +197,6 @@ const Registration = () => {
           transition: 'background-image 1s ease-in-out',
         }}
       ></div>
-      {/* Overlay putih transparan untuk efek */}
       <div
         style={{
           backgroundColor: 'rgba(255,255,255,0.8)',

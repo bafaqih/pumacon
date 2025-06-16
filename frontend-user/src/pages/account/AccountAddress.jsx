@@ -1,145 +1,154 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import apiClient from '../../services/apiClient'; // Import apiClient
-import { useCustomerAuth } from '../../contexts/CustomerAuthContext'; // Import useCustomerAuth
-import { Alert } from 'react-bootstrap';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useCustomerAuth } from '../../contexts/CustomerAuthContext';
+import apiClient from '../../services/apiClient';
+import { Alert, Button, Card, Col, Form, Modal, Row } from 'react-bootstrap';
 
 const AccountAddress = () => {
-    const location = useLocation();
+    const location = useLocation(); 
     const navigate = useNavigate();
-    // Ambil currentUser dan setCurrentUser dari CustomerAuthContext
-    const { currentUser, setCurrentUser } = useCustomerAuth();
+    const { currentUser, token, logout, fetchUserDetails, isAuthLoading } = useCustomerAuth();
 
-    // State untuk menyimpan daftar alamat dari API
     const [addresses, setAddresses] = useState([]);
     const [loadingAddresses, setLoadingAddresses] = useState(true);
-    const [addressError, setAddressError] = useState(null);
-    const [addressMessage, setAddressMessage] = useState(null); // Untuk pesan sukses
+    const [pageError, setPageError] = useState(null); 
+    const [actionMessage, setActionMessage] = useState(null); 
 
-    // State untuk mengontrol visibilitas modal (dengan Bootstrap)
-    const [isModalOpen, setIsModalOpen] = useState(false); // State ini akan mengontrol Modal Bootstrap secara programatis
-
-    // Initial form data untuk tambah/edit alamat
     const initialFormData = {
-        addressID: null, // Menggunakan addressID sesuai model Go (uint)
-        title: '',
-        street: '', // Sesuaikan dengan field 'Street' di model Go
-        additional: '', // Sesuaikan dengan field 'Additional' di model Go
-        districtCity: '',
-        province: '',
-        postCode: '', // Sesuaikan dengan field 'PostCode' di model Go
-        isDefault: false, // Sesuaikan dengan field 'IsDefault' di model Go
+        AddressID: 0, 
+        Title: '',
+        Street: '',
+        Additional: '',
+        DistrictCity: '',
+        Province: '',
+        PostCode: '',
     };
     const [formData, setFormData] = useState(initialFormData);
-    const [loadingSaveAddress, setLoadingSaveAddress] = useState(false); // Loading saat menyimpan alamat
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [loadingModal, setLoadingModal] = useState(false);
+    const [validated, setValidated] = useState(false);
 
-    // Fungsi untuk membuka modal Bootstrap
     const openBootstrapModal = () => {
         const modalElement = document.getElementById('addressFormModal');
         if (modalElement && window.bootstrap) {
-            const bootstrapModal = new window.bootstrap.Modal(modalElement);
-            bootstrapModal.show();
-            setIsModalOpen(true);
+            try {
+                const bootstrapModal = new window.bootstrap.Modal(modalElement);
+                bootstrapModal.show();
+            } catch (e) { console.error("Error showing Bootstrap modal:", e); }
         }
     };
 
-    // Fungsi untuk menutup modal Bootstrap
     const closeBootstrapModal = () => {
         const modalElement = document.getElementById('addressFormModal');
         if (modalElement && window.bootstrap) {
-            const bootstrapModal = window.bootstrap.Modal.getInstance(modalElement);
-            if (bootstrapModal) {
-                bootstrapModal.hide();
-            }
-            // Tambahkan listener untuk membersihkan form setelah modal benar-benar tertutup
-            modalElement.addEventListener('hidden.bs.modal', () => {
-                setFormData(initialFormData); // Reset form data
-                setIsModalOpen(false);
-                setAddressError(null); // Bersihkan error saat modal ditutup
-                setAddressMessage(null); // Bersihkan pesan saat modal ditutup
-            }, { once: true });
-        } else {
-            setFormData(initialFormData);
-            setIsModalOpen(false);
-            setAddressError(null);
-            setAddressMessage(null);
-        }
-    };
-
-    // Fungsi untuk mengambil alamat dari backend
-    const fetchAddresses = useCallback(async () => {
-        setLoadingAddresses(true);
-        setAddressError(null);
-        try {
-            // Asumsi API GET /user/addresses mengembalikan array alamat di properti 'addresses'
-            const response = await apiClient.get('/user/addresses');
-            const fetchedAddresses = response.data.addresses || [];
-            setAddresses(fetchedAddresses);
-
-            // Setelah fetch alamat, perbarui hasAddress di currentUser jika perlu
-            // Ini menjaga konsistensi hasAddress di context
-            if (currentUser && setCurrentUser) { // Pastikan setCurrentUser tersedia
-                const currentHasAddress = currentUser.hasAddress || false;
-                const newHasAddress = fetchedAddresses.length > 0;
-                if (currentHasAddress !== newHasAddress) {
-                    setCurrentUser(prev => ({
-                        ...prev,
-                        hasAddress: newHasAddress
-                    }));
+            try {
+                const bootstrapModal = window.bootstrap.Modal.getInstance(modalElement);
+                if (bootstrapModal) {
+                    bootstrapModal.hide();
                 }
-            }
+            } catch (e) { console.error("Error hiding Bootstrap modal:", e); }
+        }
+        setFormData(initialFormData);
+        setIsEditMode(false);
+        setValidated(false);
+    };
+    
+    useEffect(() => {
+        const modalElement = document.getElementById('addressFormModal');
+        if (modalElement) {
+            const handleModalHidden = () => {
+                setFormData(initialFormData);
+                setIsEditMode(false);
+                setValidated(false);
+            };
+            modalElement.addEventListener('hidden.bs.modal', handleModalHidden);
+            return () => {
+                modalElement.removeEventListener('hidden.bs.modal', handleModalHidden);
+            };
+        }
+    }, []);
+
+    const fetchCustomerAddresses = useCallback(async () => {
+        if (!token || !currentUser?.customerID) {
+            console.log("[AccountAddress] fetchCustomerAddresses: Skip, token atau CustomerID belum siap.", { hasToken: !!token, hasCustomerID: !!currentUser?.customerID });
+            setLoadingAddresses(false); 
+            setAddresses([]);
+            return;
+        }
+
+        console.log(`[AccountAddress] fetchCustomerAddresses: Memulai fetch untuk CustomerID: ${currentUser.CustomerID}`);
+        setLoadingAddresses(true);
+        setActionMessage(null); 
+        try {
+            const response = await apiClient.get('/user/addresses', { 
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const fetchedData = response.data.addresses || [];
+            console.log("[AccountAddress] fetchCustomerAddresses - Data diterima:", fetchedData);
+            setAddresses(fetchedData);
         } catch (error) {
-            console.error("Gagal mengambil alamat:", error.response?.data?.error || error.message);
-            setAddressError("Gagal memuat alamat. Silakan coba lagi.");
-            setAddresses([]); // Kosongkan alamat jika gagal
-            if (currentUser && setCurrentUser) {
-                setCurrentUser(prev => ({ ...prev, hasAddress: false }));
+            console.error("Failed to fetch addresses:", error.response?.data?.error || error.message);
+            const errorMsg = error.response?.data?.error || "Failed to load your addresses. Please try again.";
+            setActionMessage({ type: 'danger', text: errorMsg });
+            setAddresses([]);
+            if (error.response && error.response.status === 401) {
+                logout(); 
+                navigate('/login', {replace: true}); 
             }
         } finally {
             setLoadingAddresses(false);
+            console.log("[AccountAddress] fetchCustomerAddresses: Selesai.");
         }
-    }, [currentUser, setCurrentUser]); // Dependensi: currentUser dan setCurrentUser
+    }, [token, currentUser?.customerID, logout, navigate]);
 
-    // useEffect untuk memicu fetchAddresses dan membuka modal otomatis
     useEffect(() => {
-        fetchAddresses(); // Panggil fetch saat komponen dimuat
+        console.log("[AccountAddress] useEffect dependencies changed: isAuthLoading:", isAuthLoading, "currentUser exists:", !!currentUser, "token exists:", !!token);
+        if (!isAuthLoading && token && currentUser?.customerID) {
+            console.log("[AccountAddress] useEffect: Kondisi terpenuhi, memanggil fetchCustomerAddresses.");
+            fetchCustomerAddresses();
+        } else if (!isAuthLoading && !token) {
+            console.log("[AccountAddress] useEffect: Tidak ada token, set loadingAddresses false.");
+            setLoadingAddresses(false);
+            setAddresses([]); 
+        } else if (!isAuthLoading && token && !currentUser?.customerID) {
+            console.warn("[AccountAddress] useEffect: Token ada, tapi CustomerID tidak ada di currentUser. Alamat tidak diambil.");
+            setLoadingAddresses(false);
+            setAddresses([]);
+            setActionMessage({ type: 'warning', text: "Could not verify user details to fetch addresses." });
+        }
+    }, [isAuthLoading, currentUser, token, fetchCustomerAddresses]);
+    useEffect(() => {
+        if (location.state?.openAddAddressModal && currentUser) {
+            handleShowModalForAdd();
+            navigate(location.pathname, { replace: true, state: {} }); 
+        }
+    }, [location.state, navigate, currentUser]);
 
-        // Logika untuk membuka modal secara otomatis dari state navigasi (setelah login)
-        if (location.state?.openAddAddressModal) {
-            prepareModalData(); // Siapkan form untuk alamat baru
-            setTimeout(() => {
-                openBootstrapModal();
-            }, 100); // Penundaan kecil untuk memastikan modal sudah ada di DOM
-            // Hapus state dari URL setelah digunakan agar tidak terbuka lagi saat refresh
-            navigate(location.pathname, { replace: true, state: {} });
-        }
-    }, [fetchAddresses, location.state, navigate]); // Dependensi
 
-    // Menyiapkan data form modal (untuk tambah atau edit)
-    const prepareModalData = (addressToEdit = null) => {
-        if (addressToEdit) {
-            // Mengisi formData dengan data alamat yang akan diedit
-            setFormData({
-                addressID: addressToEdit.AddressID, // Sesuaikan dengan AddressID dari backend
-                title: addressToEdit.Title,
-                street: addressToEdit.Street,
-                additional: addressToEdit.Additional,
-                districtCity: addressToEdit.DistrictCity,
-                province: addressToEdit.Province,
-                postCode: addressToEdit.PostCode,
-                isDefault: addressToEdit.IsDefault,
-            });
-        } else {
-            // Mengatur form untuk alamat baru
-            setFormData({ ...initialFormData, title: 'Alamat Baru' });
-        }
-        // Pastikan modal terbuka saat prepareData dipanggil dari tombol manual
-        if (!isModalOpen) {
-            openBootstrapModal();
-        }
+    const handleShowModalForAdd = () => {
+        setFormData({ ...initialFormData }); 
+        setIsEditMode(false);
+        setActionMessage(null); 
+        setValidated(false);
+        openBootstrapModal();
     };
 
-    // Handler perubahan input form modal
+    const handleShowModalForEdit = (address) => {
+        setFormData({
+            AddressID: address.AddressID,
+            Title: address.Title || '',
+            Street: address.Street || '',
+            Additional: address.Additional || '',
+            DistrictCity: address.DistrictCity || '',
+            Province: address.Province || '',
+            PostCode: address.PostCode || '',
+        });
+        setIsEditMode(true);
+        setActionMessage(null); 
+        setValidated(false);
+        openBootstrapModal();
+    };
+
     const handleFormInputChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prevData => ({
@@ -148,233 +157,181 @@ const AccountAddress = () => {
         }));
     };
 
-    // Handler saat form modal disubmit (tambah atau edit alamat)
-    const handleSaveChanges = async (e) => {
+    const handleSubmitAddress = async (e) => {
         e.preventDefault();
-        setLoadingSaveAddress(true);
-        setAddressError(null);
-        setAddressMessage(null); // Reset pesan
+        const form = e.currentTarget;
+        setValidated(true);
+
+        if (form.checkValidity() === false) {
+            e.stopPropagation();
+            return;
+        }
+
+        setLoadingModal(true);
+        setActionMessage(null); 
+
+        const payload = {
+            title: formData.Title,
+            street: formData.Street,
+            additional: formData.Additional,
+            district_city: formData.DistrictCity,
+            province: formData.Province,
+            post_code: formData.PostCode,
+        };
 
         try {
-            const dataToSave = {
-                title: formData.title,
-                street: formData.street,
-                additional: formData.additional,
-                district_city: formData.districtCity, // Sesuaikan dengan snake_case di backend
-                province: formData.province,
-                post_code: formData.postCode, // Sesuaikan dengan snake_case di backend
-                is_default: formData.isDefault, // Sesuaikan dengan snake_case di backend
-            };
-
-            if (formData.addressID) {
-                // UPDATE ALAMAT: Panggil API PUT /user/addresses/:id
-                const response = await apiClient.put(`/user/addresses/${formData.addressID}`, dataToSave);
-                setAddressMessage(response.data.message || "Alamat berhasil diperbarui!");
+            let response;
+            if (isEditMode && formData.AddressID) {
+                response = await apiClient.put(`/user/addresses/${formData.AddressID}`, payload, { headers: { Authorization: `Bearer ${token}` }});
             } else {
-                // TAMBAH ALAMAT BARU: Panggil API POST /user/addresses
-                const response = await apiClient.post('/user/addresses', dataToSave);
-                setAddressMessage(response.data.message || "Alamat berhasil ditambahkan!");
+                response = await apiClient.post('/user/addresses', payload, { headers: { Authorization: `Bearer ${token}` }});
             }
-            closeBootstrapModal(); // Tutup modal setelah berhasil
-            fetchAddresses(); // Refresh daftar alamat setelah operasi sukses
+            setActionMessage({ type: 'success', text: response.data.message || "Operation successful!" });
+            closeBootstrapModal(); 
+            console.log("[AccountAddress] handleSubmitAddress: Operasi alamat sukses, memanggil fetchCustomerAddresses untuk refresh.");
+            await fetchCustomerAddresses();
         } catch (error) {
-            console.error("Gagal menyimpan alamat:", error.response?.data?.error || error.message);
-            const msg = error.response?.data?.error || "Gagal menyimpan alamat. Silakan coba lagi.";
-            setAddressError(msg);
+            const msg = error.response?.data?.error || "Failed to save address.";
+            setActionMessage({ type: 'danger', text: msg, context: 'modal' });
+            if (error.response?.status === 401) { logout(); navigate('/login', {replace: true});}
         } finally {
-            setLoadingSaveAddress(false);
+            setLoadingModal(false);
         }
     };
+    
+
+    if (isAuthLoading) { 
+        return <div className="container p-5 text-center">Initializing session...</div>;
+    }
+    if (!currentUser && !token) { 
+        navigate('/login', {replace: true});
+        return null; 
+    }
+    if (!currentUser && token) { 
+        return <div className="container p-5 text-center">Loading user data... (currentUser is null)</div>;
+    }
+    if (pageError) { 
+        return <div className="container p-5"><Alert variant="danger">{pageError}</Alert></div>;
+    }
 
     return (
         <>
-            <div className="col-lg-9 col-md-8">
-                <div className="row g-3 mb-4 align-items-center">
-                    <div className="col-xl-9 col-md-6 col-4">
-                        <h1 className="mb-0 h2">Addresses</h1>
-                    </div>
-                    <div className="col-xl-3 col-md-6 col-8 text-end">
-                        <a
-                            href="#!"
-                            className="btn btn-outline-dark rounded-0"
-                            data-bs-toggle="modal"
-                            data-bs-target="#addressFormModal"
-                            onClick={() => prepareModalData()} // Panggil prepareModalData untuk tambah
-                        >
-                            + Add address
-                        </a>
-                    </div>
+            <div className="col-lg-9 col-md-8 col-12">
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                    <h1 className="mb-0 h2">Addresses</h1>
+                    <Button variant="dark" className="rounded-0" onClick={handleShowModalForAdd}>
+                        <i className="bi bi-plus-lg me-2"></i>Add New Address
+                    </Button>
                 </div>
 
-                {addressMessage && <Alert variant="success">{addressMessage}</Alert>}
-                {addressError && <Alert variant="danger">{addressError}</Alert>}
+                {actionMessage && actionMessage.context !== 'modal' && (
+                    <Alert variant={actionMessage.type} onClose={() => setActionMessage(null)} dismissible>
+                        {actionMessage.text}
+                    </Alert>
+                )}
 
                 {loadingAddresses ? (
-                        <p>Loading addresses...</p>
-                    ) : addresses.length === 0 ? (
-                        <div className="alert alert-info" role="alert">
-                            You don't have any address yet.
-                        </div>
-                    ) : (
-                    <div className="row g-4">
+                    <p className="text-center">Loading addresses...</p>
+                ) : addresses.length === 0 ? (
+                    <Alert variant="info">You don't have any saved addresses yet. Click "Add New Address" to get started.</Alert>
+                ) : (
+                    <Row className="g-4">
                         {addresses.map((address) => (
-                            <div className="col-lg-6 col-12" key={address.AddressID}> {/* Menggunakan AddressID sebagai key */}
-                                <div className="card h-100 rounded-0">
-                                    <div className="card-body d-flex flex-column gap-3 p-4">
-                                        <div className="d-flex flex-row align-items-center justify-content-between">
-                                            <div className="d-flex flex-row gap-3 align-items-center">
-                                                <h2 className="mb-0 h5">{address.Title}</h2>
-                                                {address.IsDefault && ( // Sesuaikan dengan IsDefault dari backend
-                                                    <span>
-                                                        <span className="badge text-bg-info">Primary</span>
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <a
-                                                href="#!"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#addressFormModal"
-                                                onClick={() => prepareModalData(address)} // Panggil prepareModalData untuk edit
-                                            >
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    width="16"
-                                                    height="16"
-                                                    fill="currentColor"
-                                                    className="bi bi-pencil text-body-tertiary"
-                                                    viewBox="0 0 16 16"
+                            <Col lg={6} xs={12} key={address.AddressID}>
+                                <Card className="h-100 rounded-0">
+                                    <Card.Body className="d-flex flex-column">
+                                        <div className="d-flex justify-content-between mb-2">
+                                            <Card.Title as="h5" className="mb-0 text-truncate">
+                                                {address.Title}
+                                            </Card.Title>
+                                            <Button 
+                                                    variant="link" 
+                                                    size="sm" 
+                                                    className="me-1 p-1 text-body-tertiary" 
+                                                    onClick={() => handleShowModalForEdit(address)}
+                                                    title="Edit Address" 
                                                 >
-                                                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325" />
-                                                </svg>
-                                            </a>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-pencil" viewBox="0 0 16 16">
+                                                        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                                                    </svg>
+                                                </Button>
                                         </div>
-                                        <div>
-                                            <address className="mb-0">
-                                                {address.Street} <br /> {/* Sesuaikan dengan Street dari backend */}
-                                                {address.Additional && <>{address.Additional}<br /></>} {/* Sesuaikan dengan Additional dari backend */}
-                                                {address.DistrictCity}, {address.Province} {address.PostCode} {/* Sesuaikan dengan PostCode dari backend */}
-                                                <br />
-                                                
-                                            </address>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                                        <address className="mb-0 small flex-grow-1">
+                                            {address.Street}<br />
+                                            {address.Additional && <>{address.Additional}<br /></>}
+                                            {address.DistrictCity}, {address.Province} {address.PostCode}
+                                        </address>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
                         ))}
-                    </div>
+                    </Row>
                 )}
             </div>
 
-            {/* MODAL FORM UNTUK TAMBAH/EDIT ALAMAT */}
             <div className="modal fade" id="addressFormModal" tabIndex="-1" aria-labelledby="addressFormModalLabel" aria-hidden="true">
-                <div className="modal-dialog modal-dialog-centered modal-xl">
+                <div className="modal-dialog modal-dialog-centered modal-lg">
                     <div className="modal-content rounded-0">
-                        <form onSubmit={handleSaveChanges}>
-                            <div className="modal-header">
-                                <h5 className="modal-title" id="addressFormModalLabel">
-                                    {formData.addressID ? 'Edit Address' : 'Add New Address'}
-                                </h5>
-                                <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div className="modal-body">
-                                {addressError && <Alert variant="danger">{addressError}</Alert>}
-                                {addressMessage && <Alert variant="success">{addressMessage}</Alert>}
-                                <div className="mb-3">
-                                    <label htmlFor="formTitle" className="form-label">Address Title <span className="text-danger">*</span></label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        id="formTitle"
-                                        name="title"
-                                        value={formData.title}
-                                        onChange={handleFormInputChange}
-                                        required
-                                    />
-                                </div>
-                                <div className="mb-3">
-                                    <label htmlFor="formStreet" className="form-label">Street Address <span className="text-danger">*</span></label> {/* Ganti AddressFull jadi Street */}
-                                    <textarea
-                                        className="form-control"
-                                        id="formStreet"
-                                        name="street" // Ganti name jadi 'street'
-                                        rows="3"
-                                        value={formData.street}
-                                        onChange={handleFormInputChange}
-                                        required
-                                    ></textarea>
-                                </div>
-
-                                <div className="row">
-                                    <div className="col-md-6 mb-3">
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            id="formAdditional"
-                                            name="additional" // Ganti name jadi 'additional'
-                                            placeholder="Additional Info (Block/Unit No, Benchmark)"
-                                            value={formData.additional}
-                                            onChange={handleFormInputChange}
-                                        />
-                                    </div>
-                                    <div className="col-md-6 mb-3">
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            id="formDistrictCity"
-                                            name="districtCity"
-                                            placeholder="District/City *"
-                                            value={formData.districtCity}
-                                            onChange={handleFormInputChange}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="row">
-                                    <div className="col-md-6 mb-3">
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            id="formProvince"
-                                            name="province"
-                                            placeholder="Province *"
-                                            value={formData.province}
-                                            onChange={handleFormInputChange}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="col-md-6 mb-3">
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            id="formPostCode"
-                                            name="postCode" // Ganti name jadi 'postCode'
-                                            placeholder="Postcode *"
-                                            value={formData.postCode}
-                                            onChange={handleFormInputChange}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="mb-1 form-check">
-                                    <input
-                                        type="checkbox"
-                                        className="form-check-input"
-                                        id="formIsDefault" // Ganti id jadi 'formIsDefault'
-                                        name="isDefault" // Ganti name jadi 'isDefault'
-                                        checked={formData.isDefault}
-                                        onChange={handleFormInputChange}
-                                    />
-                                    <label className="form-check-label" htmlFor="formIsDefault">Set as primary address</label>
-                                </div>
-                            </div>
-                            <div className="mb-1 modal-footer">
-                                <button type="submit" className="btn btn-primary rounded-0 w-100" disabled={loadingSaveAddress}>
-                                    {loadingSaveAddress ? (formData.addressID ? 'Saving Changes...' : 'Saving Address...') : (formData.addressID ? 'Save Changes' : 'Save Address')}
-                                </button>
-                            </div>
-                        </form>
+                        <Form noValidate validated={validated} onSubmit={handleSubmitAddress}>
+                            <Modal.Header closeButton onHide={closeBootstrapModal}>
+                                <Modal.Title id="addressFormModalLabel">
+                                    {isEditMode ? 'Edit Address' : 'Add New Address'}
+                                </Modal.Title>
+                            </Modal.Header>
+                            <Modal.Body>
+                                {actionMessage && actionMessage.context === 'modal' && 
+                                    <Alert variant={actionMessage.type} onClose={() => setActionMessage(null)} dismissible>
+                                        {actionMessage.text}
+                                    </Alert>
+                                }
+                                
+                                <Form.Group className="mb-3" controlId="formAddressTitle">
+                                    <Form.Label>Address Title <span className="text-danger">*</span></Form.Label>
+                                    <Form.Control type="text" placeholder="e.g., Home, Office" name="Title" value={formData.Title} onChange={handleFormInputChange} required disabled={loadingModal}/>
+                                    <Form.Control.Feedback type="invalid">Address title is required.</Form.Control.Feedback>
+                                </Form.Group>
+                                <Form.Group className="mb-3" controlId="formAddressStreet">
+                                    <Form.Label>Street Address <span className="text-danger">*</span></Form.Label>
+                                    <Form.Control as="textarea" rows={2} placeholder="Street name, building number" name="Street" value={formData.Street} onChange={handleFormInputChange} required disabled={loadingModal}/>
+                                    <Form.Control.Feedback type="invalid">Street address is required.</Form.Control.Feedback>
+                                </Form.Group>
+                                <Form.Group className="mb-3" controlId="formAddressAdditional">
+                                    <Form.Label>Additional Info (Optional)</Form.Label>
+                                    <Form.Control type="text" placeholder="e.g., Block A1, Unit 2, Landmark" name="Additional" value={formData.Additional} onChange={handleFormInputChange} disabled={loadingModal}/>
+                                </Form.Group>
+                                <Row>
+                                    <Col md={6} className="mb-3">
+                                        <Form.Group controlId="formAddressDistrictCity">
+                                            <Form.Label>District/City <span className="text-danger">*</span></Form.Label>
+                                            <Form.Control type="text" placeholder="District/City" name="DistrictCity" value={formData.DistrictCity} onChange={handleFormInputChange} required disabled={loadingModal}/>
+                                            <Form.Control.Feedback type="invalid">District/City is required.</Form.Control.Feedback>
+                                        </Form.Group>
+                                    </Col>
+                                    <Col md={6} className="mb-3">
+                                        <Form.Group controlId="formAddressProvince">
+                                            <Form.Label>Province <span className="text-danger">*</span></Form.Label>
+                                            <Form.Control type="text" placeholder="Province" name="Province" value={formData.Province} onChange={handleFormInputChange} required disabled={loadingModal}/>
+                                            <Form.Control.Feedback type="invalid">Province is required.</Form.Control.Feedback>
+                                        </Form.Group>
+                                    </Col>
+                                </Row>
+                                <Row>
+                                    <Col md={6} className="mb-3"> 
+                                        <Form.Group controlId="formAddressPostCode">
+                                            <Form.Label>Post Code <span className="text-danger">*</span></Form.Label>
+                                            <Form.Control type="text" placeholder="Post Code" name="PostCode" value={formData.PostCode} onChange={handleFormInputChange} required disabled={loadingModal}/>
+                                            <Form.Control.Feedback type="invalid">Post Code is required.</Form.Control.Feedback>
+                                        </Form.Group>
+                                    </Col>
+                                </Row>
+                            </Modal.Body>
+                            <Modal.Footer>
+                                <Button variant="secondary" onClick={closeBootstrapModal} disabled={loadingModal} className="rounded-0">Cancel</Button>
+                                <Button variant="primary" type="submit" disabled={loadingModal} className="rounded-0">
+                                    {loadingModal ? (isEditMode ? 'Saving...' : 'Adding...') : (isEditMode ? 'Save Changes' : 'Add Address')}
+                                </Button>
+                            </Modal.Footer>
+                        </Form>
                     </div>
                 </div>
             </div>

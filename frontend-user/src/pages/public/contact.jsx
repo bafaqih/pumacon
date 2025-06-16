@@ -130,7 +130,7 @@ const isHome = location.pathname === "/";
 							</div>
 							<div className="form-wrapper style-1">
 								<div className="contact-area">
-									<form className="dz-form dzForm" method="POST" action="https://motaadmin.dexignlab.com/frontend/xhtml/public/script/contact_smtp.php">
+									<form className="dz-form dzForm" method="POST" action="https://pumacon.com/contact">
 										<div className="dzFormMsg"></div>
 										<input type="hidden" className="form-control" name="dzToDo" value="Contact"/>
 										<div className="row ">

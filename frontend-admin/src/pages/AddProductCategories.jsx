@@ -1,37 +1,32 @@
-// src/pages/AddProductCategories.jsx
-import React, { useState } from 'react'; // useEffect tidak lagi diperlukan di sini
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import ReactQuill from 'react-quill-new'; // Asumsi 'react-quill' adalah yang benar, bukan 'react-quill-new'
-import { useAuth } from '../contexts/AuthContext'; // Sesuaikan path jika perlu
-import api from '../services/api'; // Sesuaikan path jika perlu
+import ReactQuill from 'react-quill-new';
+import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
 
 const AddProductCategories = () => {
   const navigate = useNavigate();
-  const { token, logout } = useAuth(); // Ambil token untuk API call
+  const { token, logout } = useAuth();
 
-  // State untuk form fields
   const [categoryName, setCategoryName] = useState('');
-  // categoryId dihapus dari state karena akan digenerate backend
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState('published'); // Default 'published', opsi: 'published', 'unpublished'
+  const [status, setStatus] = useState('published');
 
-  // State untuk loading dan pesan
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [validated, setValidated] = useState(false); // Untuk validasi Bootstrap
+  const [validated, setValidated] = useState(false);
 
-  const handleSubmit = async (event) => { // Ubah menjadi async
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
     setSuccessMessage('');
     setErrorMessage('');
-    setValidated(true); // Tandai bahwa validasi telah dicoba
+    setValidated(true);
 
     const form = event.currentTarget;
     if (form.checkValidity() === false) {
       event.stopPropagation();
-      // Bootstrap 'was-validated' akan ditambahkan oleh setValidated dan class di form
       setLoading(false);
       return;
     }
@@ -44,31 +39,28 @@ const AddProductCategories = () => {
         return;
     }
 
-    // Data yang akan dikirim ke backend
     const categoryData = {
-      category_name: categoryName, // Sesuaikan dengan field DTO backend
+      category_name: categoryName,
       description: description,
       status: status,
     };
 
     try {
-      const response = await api.post('/admin/add-product-category', categoryData, { // Ganti endpoint jika berbeda
+      const response = await api.post('/admin/add-product-category', categoryData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json', // Kita kirim JSON
+          'Content-Type': 'application/json',
         },
       });
 
       setSuccessMessage(response.data.message || 'Kategori produk berhasil ditambahkan!');
-      // Kosongkan form
       setCategoryName('');
       setDescription('');
       setStatus('published');
-      setValidated(false); // Reset status validasi
+      setValidated(false);
 
-      // Opsional: Arahkan ke halaman daftar kategori setelah beberapa detik
       setTimeout(() => {
-        navigate('/dashboard/products/categories'); // Sesuaikan path jika perlu
+        navigate('/dashboard/products/categories');
       }, 2000);
 
     } catch (err) {
@@ -119,8 +111,7 @@ const AddProductCategories = () => {
                 <div className="card-body p-6">
                   <h4 className="mb-4 h5 mt-0">Category Information</h4>
                   <div className="row">
-                    {/* Category Name */}
-                    <div className="mb-3 col-lg-12"> {/* Dibuat full width */}
+                    <div className="mb-3 col-lg-12">
                       <label className="form-label" htmlFor="categoryNameInput">Category Name <span className="text-danger">*</span></label>
                       <input 
                         type="text" 
@@ -134,10 +125,6 @@ const AddProductCategories = () => {
                       />
                       <div className="invalid-feedback">Please enter category name.</div>
                     </div>
-                    
-                    {/* Category ID Dihapus dari Form Input */}
-                    
-                    {/* Descriptions */}
                     <div className="mb-3 col-lg-12" style={{minHeight: '250px', marginBottom: '40px'}}>
                       <label className="form-label">Description</label>
                         <ReactQuill
@@ -149,8 +136,6 @@ const AddProductCategories = () => {
                         readOnly={loading}
                       />
                     </div>
-
-                    {/* Status */}
                     <div className="mb-3 col-lg-12">
                       <label className="form-label d-block" id="categoryStatusLabel">Status <span className="text-danger">*</span></label>
                       <div className="form-check form-check-inline">
@@ -158,7 +143,7 @@ const AddProductCategories = () => {
                             className="form-check-input" 
                             type="radio" 
                             name="categoryStatusRadio"
-                            id="statusPublishedCat" // ID unik
+                            id="statusPublishedCat"
                             value="published"
                             checked={status === 'published'} 
                             onChange={(e) => setStatus(e.target.value)} 
@@ -171,7 +156,7 @@ const AddProductCategories = () => {
                             className="form-check-input" 
                             type="radio" 
                             name="categoryStatusRadio" 
-                            id="statusUnpublishedCat" // ID unik
+                            id="statusUnpublishedCat"
                             value="unpublished"
                             checked={status === 'unpublished'} 
                             onChange={(e) => setStatus(e.target.value)}
@@ -180,8 +165,6 @@ const AddProductCategories = () => {
                         <label className="form-check-label" htmlFor="statusUnpublishedCat">Unpublished</label>
                       </div>
                     </div>
-                    
-                    {/* Tombol Aksi */}
                     <div className="col-lg-12 mt-4">
                       <button type="submit" className="btn btn-primary" disabled={loading}>
                         {loading ? 'Creating...' : 'Create Category'}

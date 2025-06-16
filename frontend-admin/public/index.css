@@ -18,7 +18,6 @@
 
 }
 
-/* Style untuk container preview thumbnail Dropzone */
 .thumbs-container {
   display: flex;
   flex-direction: row;
@@ -26,7 +25,6 @@
   margin-top: 16px;
 }
 
-/* Style untuk setiap item thumbnail */
 .thumb {
   display: inline-flex;
   border-radius: 2px;
@@ -37,38 +35,30 @@
   height: 100px;
   padding: 4px;
   box-sizing: border-box;
-  flex-direction: column; /* Untuk menata gambar dan tombol remove jika ada */
-  align-items: center; /* Pusatkan tombol remove jika ada di bawah gambar */
-  position: relative; /* Untuk positioning absolut tombol remove jika diinginkan */
+  flex-direction: column; 
+  align-items: center; 
+  position: relative; 
 }
 
-/* Style untuk pembungkus dalam thumbnail (mengontrol overflow gambar) */
+
 .thumb-inner {
   display: flex;
   min-width: 0;
   overflow: hidden;
-  width: 100%; /* Pastikan inner mengambil lebar penuh dari thumb */
-  height: 100%; /* Pastikan inner mengambil tinggi penuh untuk gambar */
+  width: 100%; 
+  height: 100%; 
 }
 
-/* Style untuk gambar thumbnail */
 .thumb-img {
   display: block;
-  width: 100%; /* Ubah dari auto ke 100% agar mengisi thumb-inner */
-  height: 100%; /* Tetap 100% */
-  object-fit: cover; /* Pastikan gambar meng-cover area tanpa distorsi */
+  width: 100%; 
+  height: 100%; 
+  object-fit: cover; 
 }
 
-/* Opsional: Style untuk tombol remove pada thumbnail */
 .thumb-remove-button {
-  /* Contoh styling, Anda bisa sesuaikan */
   margin-top: 4px;
   padding: 2px 5px;
   font-size: 0.75rem;
-  /* Jika ingin tombolnya overlay di atas gambar:
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  z-index: 10;
-  */
+ 
 }
